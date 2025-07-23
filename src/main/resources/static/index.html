@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pronunciation Scoring Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #result {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .recording {
+            color: red;
+            font-weight: bold;
+        }
+        .meter {
+            height: 20px;
+            position: relative;
+            background: #f3f3f3;
+            border-radius: 25px;
+            padding: 5px;
+            box-shadow: inset 0 -1px 1px rgba(255,255,255,0.3);
+            margin-top: 10px;
+        }
+        .meter > span {
+            display: block;
+            height: 100%;
+            border-radius: 20px;
+            background-color: rgb(43,194,83);
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pronunciation Scoring Demo</h1>
+    <p>This demo allows you to test the pronunciation scoring service by recording audio and comparing it to a reference text.</p>
+
+    <div class="container">
+        <h2>1. Service Health Check</h2>
+        <p>First, check if the service is running properly:</p>
+        <button id="healthCheck">Check Service Health</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. Pronunciation Scoring</h2>
+        <p>Enter a reference text and either record your pronunciation or upload an audio file:</p>
+
+        <label for="referenceText">Reference Text:</label>
+        <textarea id="referenceText" rows="2" placeholder="Enter the text you want to pronounce...">Hello world</textarea>
+
+        <label for="languageCode">Language Code:</label>
+        <input type="text" id="languageCode" value="en-US" placeholder="e.g., en-US, de-DE">
+
+        <div style="margin-top: 20px;">
+            <h3>Option 1: Record Audio</h3>
+            <button id="startRecording">Start Recording</button>
+            <button id="stopRecording" disabled>Stop Recording</button>
+            <span id="recordingStatus"></span>
+        </div>
+
+        <div id="audioControls" style="display: none; margin-top: 15px;">
+            <p>Review your recording:</p>
+            <audio id="audioPlayback" controls></audio>
+            <button id="submitRecording">Submit Recording</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>Option 2: Upload Audio File</h3>
+            <p>Select an audio file from your computer (WAV format recommended):</p>
+            <input type="file" id="audioFileInput" accept="audio/*" />
+            <button id="submitAudioFile" style="margin-top: 10px;">Submit Audio File</button>
+        </div>
+
+        <div id="result" style="display: none; margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+
+        // Health check
+        document.getElementById('healthCheck').addEventListener('click', async () => {
+            const healthResult = document.getElementById('healthResult');
+            healthResult.innerHTML = 'Checking service health...';
+
+            try {
+                const response = await fetch('/api/pronunciation/health');
+                const data = await response.json();
+
+                healthResult.innerHTML = `
+                    <p>Status: <strong>${data.status}</strong></p>
+                    <p>Service: ${data.service}</p>
+                `;
+            } catch (error) {
+                healthResult.innerHTML = `
+                    <p style="color: red;">Error: Could not connect to the service.</p>
+                    <p>Make sure the pronunciation service is running.</p>
+                `;
+            }
+        });
+
+        // Recording functionality
+        document.getElementById('startRecording').addEventListener('click', async () => {
+            audioChunks = [];
+            const recordingStatus = document.getElementById('recordingStatus');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    document.getElementById('audioPlayback').src = audioUrl;
+                    document.getElementById('audioControls').style.display = 'block';
+                    recordingStatus.textContent = '';
+
+                    // Stop all tracks to release the microphone
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                recordingStatus.textContent = 'Recording...';
+                recordingStatus.className = 'recording';
+
+                document.getElementById('startRecording').disabled = true;
+                document.getElementById('stopRecording').disabled = false;
+            } catch (error) {
+                recordingStatus.textContent = 'Error accessing microphone. Please ensure you have granted permission.';
+                console.error('Error accessing microphone:', error);
+            }
+        });
+
+        document.getElementById('stopRecording').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                document.getElementById('startRecording').disabled = false;
+                document.getElementById('stopRecording').disabled = true;
+            }
+        });
+
+        // Helper function to submit audio and display results
+        async function submitAudioForScoring(audioData) {
+            const referenceText = document.getElementById('referenceText').value.trim();
+            if (!referenceText) {
+                alert('Please enter a reference text.');
+                return;
+            }
+
+            const languageCode = document.getElementById('languageCode').value.trim();
+            const resultDiv = document.getElementById('result');
+
+            resultDiv.innerHTML = 'Submitting audio for scoring...';
+            resultDiv.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('audio', audioData);
+            formData.append('referenceText', referenceText);
+            formData.append('languageCode', languageCode);
+
+            try {
+                const response = await fetch('/api/pronunciation/score', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Format the result
+                let resultHtml = `
+                    <h3>Pronunciation Score: ${(data.score * 100).toFixed(1)}%</h3>
+                    <div class="meter">
+                        <span style="width: ${data.score * 100}%"></span>
+                    </div>
+                    <p>Transcribed Text: "${data.transcribedText}"</p>
+                    <p>Reference Text: "${referenceText}"</p>
+                    <h4>Word Details:</h4>
+                    <ul>
+                `;
+
+                data.wordDetails.forEach(word => {
+                    const confidencePercent = (word.confidence * 100).toFixed(1);
+                    const color = word.isCorrect ? 'green' : 'red';
+
+                    resultHtml += `
+                        <li style="color: ${color}">
+                            <strong>${word.word}</strong> (${confidencePercent}% confidence)
+                            ${!word.isCorrect && word.expectedWord ? ` - Expected: "${word.expectedWord}"` : ''}
+                        </li>
+                    `;
+                });
+
+                resultHtml += '</ul>';
+                resultDiv.innerHTML = resultHtml;
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                    <p>Make sure the pronunciation service is running and properly configured.</p>
+                `;
+            }
+        }
+
+        // Submit recorded audio for scoring
+        document.getElementById('submitRecording').addEventListener('click', async () => {
+            if (!audioBlob) {
+                alert('Please record audio first.');
+                return;
+            }
+
+            await submitAudioForScoring(audioBlob);
+        });
+
+        // Submit uploaded audio file for scoring
+        document.getElementById('submitAudioFile').addEventListener('click', async () => {
+            const fileInput = document.getElementById('audioFileInput');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select an audio file first.');
+                return;
+            }
+
+            const audioFile = fileInput.files[0];
+            await submitAudioForScoring(audioFile);
+        });
+    </script>
+</body>
+</html>
