@@ -1,15 +1,14 @@
 package de.demo.pronunciationservice.controller
 
+import de.demo.pronunciationservice.model.SentenceEvaluationResult
 import de.demo.pronunciationservice.service.PronunciationScore
 import de.demo.pronunciationservice.service.PronunciationScoringService
 import de.demo.pronunciationservice.service.SphinxService
-import de.demo.pronunciationservice.service.WordAlignmentResult
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.logging.Logger
 
@@ -31,7 +30,7 @@ class PronunciationController(
      * @param languageCode The language code (e.g., "en-US", "de-DE")
      * @return A PronunciationScore object with the scoring results
      */
-    @PostMapping("/score", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @PostMapping("/evaluate-stt", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun scorePronunciation(
         @RequestParam("audio") audio: MultipartFile,
         @RequestParam("referenceText") referenceText: String,
@@ -52,32 +51,36 @@ class PronunciationController(
         )
     }
 
-    @PostMapping("/align-sphinx")
+    @PostMapping("/evaluate-align")
     fun evaluateWithSphinx(
         @RequestParam("audio") audioFile: MultipartFile,
-        @RequestParam("referenceText") referenceText: String
-    ): ResponseEntity<MutableList<WordAlignmentResult?>> {
+        @RequestParam("referenceText") referenceText: String,
+        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+    ): ResponseEntity<out Any?> {
         if (audioFile.isEmpty) {
             return ResponseEntity.badRequest().build()
         }
 
-        val tempFile: Path?
-
         try {
-            tempFile = Files.createTempFile("sphinx-audio-", audioFile.originalFilename)
+//            val tempFile = Files.createTempFile(audioFile.originalFilename, ".wav")
+//
+//            audioFile.inputStream.use {
+//                Files.copy(it, tempFile, StandardCopyOption.REPLACE_EXISTING)
+//            }
+//
+//            val evaluationResult = sphinxService.align(
+//                tempFile.toUri().toURL(),
+//                referenceText
+//            )
 
-            audioFile.inputStream.use { input ->
-                Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING)
+            val speechResult = sphinxService.recognize(audioFile.bytes)
+            speechResult.words.forEach { wordResult ->
+                logger.info("Recognized word: ${wordResult.word}, start: ${wordResult.timeFrame.start}, end: ${wordResult.timeFrame.end}")
             }
 
-            val alignment: MutableList<WordAlignmentResult?> = sphinxService.align(
-                tempFile.toUri().toURL(),
-                referenceText
-            )
+            println(speechResult)
 
-            // Hier kannst du die Ergebnisse weiterverarbeiten
-            // z.B. Wörter mit sehr niedrigem Score als "schlecht" markieren
-            return ResponseEntity.ok(alignment)
+            return ResponseEntity.ok(speechResult)
         } catch (e: Exception) {
             e.printStackTrace()
             return ResponseEntity.internalServerError().build()
