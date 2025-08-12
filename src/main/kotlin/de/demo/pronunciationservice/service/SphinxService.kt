@@ -1,10 +1,11 @@
 package de.demo.pronunciationservice.service
 
+import de.demo.pronunciationservice.model.PhonemeEvaluationResult
+import de.demo.pronunciationservice.model.RecognizedSpeechResult
 import de.demo.pronunciationservice.model.SentenceEvaluationResult
 import de.demo.pronunciationservice.model.WordEvaluationResult
 import edu.cmu.sphinx.api.Configuration
 import edu.cmu.sphinx.api.SpeechAligner
-import edu.cmu.sphinx.api.SpeechResult
 import edu.cmu.sphinx.api.StreamSpeechRecognizer
 import edu.cmu.sphinx.result.WordResult
 import org.springframework.beans.factory.annotation.Value
@@ -42,29 +43,51 @@ class SphinxService(
         return SentenceEvaluationResult(transcript = transcript, words = wordEvaluationResults)
     }
 
-    fun recognize(audioBytes: ByteArray): SpeechResult {
+    fun recognize(audioBytes: ByteArray): RecognizedSpeechResult {
         speechRecognizer.startRecognition(audioBytes.inputStream())
         val result = speechRecognizer.result
-
-        println("############# SpeechResult: $result #############")
-        println("############# Result: ${result.result} #############")
-
+        val transcript = result?.hypothesis ?: ""
+        val words = result?.words?.map { it.toWordEvaluationResult() } ?: emptyList()
         speechRecognizer.stopRecognition()
-        return result
+        return RecognizedSpeechResult(
+            transcript = transcript,
+            words = words
+        )
     }
 
     private fun WordResult.toWordEvaluationResult(): WordEvaluationResult {
-
-        val tmp = this
-        val wordEvaluationResult = WordEvaluationResult(
+        // Extract phoneme-level details if available
+        val phonemeResults = mutableListOf<PhonemeEvaluationResult>()
+        val pronunciation = this.word.mostLikelyPronunciation
+        val phones = pronunciation?.units
+        if (phones != null && phones.isNotEmpty()) {
+            // Sphinx does not provide direct timing for each phoneme in WordResult,
+            // but we can estimate by splitting the word's time frame equally among phonemes
+            val wordStart = this.timeFrame.start / 1000.0
+            val wordEnd = this.timeFrame.end / 1000.0
+            val duration = wordEnd - wordStart
+            val phoneCount = phones.size
+            val phoneDuration = if (phoneCount > 0) duration / phoneCount else 0.0
+            phones.forEachIndexed { idx, unit ->
+                val phoneStart = wordStart + idx * phoneDuration
+                val phoneEnd = phoneStart + phoneDuration
+                phonemeResults.add(
+                    PhonemeEvaluationResult(
+                        phoneme = unit.name,
+                        evaluation = pronunciation.probability.toDouble(),
+                        startTime = phoneStart,
+                        endTime = phoneEnd
+                    )
+                )
+            }
+        }
+        return WordEvaluationResult(
             word = this.word.spelling,
             startTime = this.timeFrame.start / 1000.0,
             endTime = this.timeFrame.end / 1000.0,
-            evaluation = this.word.mostLikelyPronunciation.probability, // TODO: fix bug: double value becomes 0.0
-            phonemes = emptyList() // TODO: Implement phoneme extraction
+            evaluation = this.word.mostLikelyPronunciation.probability,
+            phonemes = phonemeResults
         )
-
-        return wordEvaluationResult
     }
 
 }

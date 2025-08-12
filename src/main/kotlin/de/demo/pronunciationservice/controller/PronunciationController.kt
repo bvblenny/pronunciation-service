@@ -8,8 +8,6 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.logging.Logger
 
 
@@ -75,10 +73,8 @@ class PronunciationController(
 
             val speechResult = sphinxService.recognize(audioFile.bytes)
             speechResult.words.forEach { wordResult ->
-                logger.info("Recognized word: ${wordResult.word}, start: ${wordResult.timeFrame.start}, end: ${wordResult.timeFrame.end}")
+                logger.info("Recognized word: ${wordResult.word}, start: ${wordResult.startTime}, end: ${wordResult.endTime}")
             }
-
-            println(speechResult)
 
             return ResponseEntity.ok(speechResult)
         } catch (e: Exception) {
