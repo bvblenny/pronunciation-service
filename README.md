@@ -71,7 +71,7 @@ The service will start on port 8080 by default.
 
 ### Score Pronunciation
 
-**Endpoint:** `POST /api/pronunciation/score`
+**Endpoint:** `POST /api/pronunciation/evaluate-stt`
 
 **Content-Type:** `multipart/form-data`
 
@@ -83,7 +83,7 @@ The service will start on port 8080 by default.
 **Example Request:**
 
 ```bash
-curl -X POST http://localhost:8080/api/pronunciation/score \
+curl -X POST http://localhost:8080/api/pronunciation/evaluate-stt \
   -F "audio=@/path/to/audio.wav" \
   -F "referenceText=Hello world" \
   -F "languageCode=en-US"
@@ -171,3 +171,56 @@ ng serve
 ```
 
 The Angular app will be available at [http://localhost:4200](http://localhost:4200) and will communicate with the backend at [http://localhost:8080](http://localhost:8080).
+
+---
+
+## Run on LAN (development)
+
+Backend is already configured to bind on all interfaces (server.address=0.0.0.0) and permissive CORS for dev. Use these steps to access from other devices in your local network (Windows):
+
+1) Find your PC's LAN IP
+- Open PowerShell and run:
+```powershell
+ipconfig | findstr /R /C:"IPv4"
+```
+- Example result: 192.168.1.50
+
+2) Start the backend bound to LAN
+```powershell
+./gradlew bootRun
+```
+- It listens on 0.0.0.0:8080. From another device, test:
+```bash
+curl http://<PC_IP>:8080/api/pronunciation/health
+```
+
+3) Start the Angular dev server bound to LAN
+- In your Angular project folder:
+```powershell
+npm install
+ng serve --host 0.0.0.0 --port 4200
+```
+- Access from another device: http://<PC_IP>:4200
+
+4) Point the frontend to the backend
+- Set the API base URL in your Angular environment (e.g., environment.ts) to:
+```
+http://<PC_IP>:8080
+```
+
+5) Windows Firewall (if not reachable)
+- Allow Java and Node to accept Private network connections when prompted, or add rules:
+```powershell
+# Allow inbound 8080 (Spring Boot) on Private profile
+netsh advfirewall firewall add rule name="PronunciationService 8080" dir=in action=allow protocol=TCP localport=8080 profile=Private
+# Allow inbound 4200 (Angular) on Private profile
+netsh advfirewall firewall add rule name="Angular Dev 4200" dir=in action=allow protocol=TCP localport=4200 profile=Private
+```
+
+6) Quick checklist
+- Backend health from phone/laptop: http://<PC_IP>:8080/api/pronunciation/health → JSON status
+- Frontend loads at http://<PC_IP>:4200 and can call the backend at http://<PC_IP>:8080
+
+Notes
+- CORS is configured via app.cors.allowed-origin-patterns and accepts LAN hosts for dev. For production, restrict it to specific origins.
+- If ports are busy, change them (backend: set PORT env var or server.port; frontend: --port flag) and update firewall rules accordingly.
