@@ -1,12 +1,12 @@
 package de.demo.pronunciationservice.model
 
 /**
- * DTO for recognized speech result with word and phoneme details.
+ * DTO for a recognized speech result with word and phoneme details.
+ *
  * @property transcript The recognized transcript (hypothesis).
  * @property words List of evaluated words with phoneme details.
  */
-data class RecognizedSpeechResult(
+data class RecognizedSpeechDto(
     val transcript: String,
-    val words: List<WordEvaluationResult>
+    val words: List<WordEvaluationDto>
 )
-

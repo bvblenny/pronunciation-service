@@ -1,15 +1,12 @@
 package de.demo.pronunciationservice.service
 
 import com.google.cloud.speech.v1.SpeechClient
-import com.google.cloud.speech.v1.RecognizeResponse
-import com.google.cloud.speech.v1.SpeechRecognitionResult
 import com.google.cloud.speech.v1.SpeechRecognitionAlternative
 import com.google.cloud.speech.v1.WordInfo
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
-import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.test.util.ReflectionTestUtils
 import kotlin.test.assertEquals
@@ -18,14 +15,14 @@ import kotlin.test.assertTrue
 @ExtendWith(MockitoExtension::class)
 class PronunciationScoringServiceTest {
 
-    private lateinit var pronunciationScoringService: PronunciationScoringService
+    private lateinit var pronunciationService: PronunciationService
 
     @Mock
     private lateinit var speechClient: SpeechClient
 
     @BeforeEach
     fun setUp() {
-        pronunciationScoringService = PronunciationScoringService()
+        pronunciationService = PronunciationService()
         // We'll test the helper methods directly since mocking the Google Cloud client is complex
     }
 
@@ -35,7 +32,7 @@ class PronunciationScoringServiceTest {
         val expected = "hello world"
 
         val similarity = ReflectionTestUtils.invokeMethod<Double>(
-            pronunciationScoringService,
+            pronunciationService,
             "calculateTextSimilarity",
             actual,
             expected
@@ -50,7 +47,7 @@ class PronunciationScoringServiceTest {
         val expected = "hello world"
 
         val similarity = ReflectionTestUtils.invokeMethod<Double>(
-            pronunciationScoringService,
+            pronunciationService,
             "calculateTextSimilarity",
             actual,
             expected
@@ -67,7 +64,7 @@ class PronunciationScoringServiceTest {
         val expected = "hello world"
 
         val similarity = ReflectionTestUtils.invokeMethod<Double>(
-            pronunciationScoringService,
+            pronunciationService,
             "calculateTextSimilarity",
             actual,
             expected
@@ -83,7 +80,7 @@ class PronunciationScoringServiceTest {
         val s2 = "hello"
 
         val distance = ReflectionTestUtils.invokeMethod<Int>(
-            pronunciationScoringService,
+            pronunciationService,
             "levenshteinDistance",
             s1,
             s2
@@ -98,7 +95,7 @@ class PronunciationScoringServiceTest {
         val s2 = "sitting"
 
         val distance = ReflectionTestUtils.invokeMethod<Int>(
-            pronunciationScoringService,
+            pronunciationService,
             "levenshteinDistance",
             s1,
             s2
@@ -130,7 +127,7 @@ class PronunciationScoringServiceTest {
             .build()
 
         val wordDetails = ReflectionTestUtils.invokeMethod<List<WordDetail>>(
-            pronunciationScoringService,
+            pronunciationService,
             "extractWordDetails",
             alternative,
             referenceText
@@ -165,7 +162,7 @@ class PronunciationScoringServiceTest {
             .build()
 
         val wordDetails = ReflectionTestUtils.invokeMethod<List<WordDetail>>(
-            pronunciationScoringService,
+            pronunciationService,
             "extractWordDetails",
             alternative,
             referenceText

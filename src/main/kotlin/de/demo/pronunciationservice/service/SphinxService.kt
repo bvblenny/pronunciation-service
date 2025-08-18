@@ -1,9 +1,9 @@
 package de.demo.pronunciationservice.service
 
-import de.demo.pronunciationservice.model.PhonemeEvaluationResult
-import de.demo.pronunciationservice.model.RecognizedSpeechResult
-import de.demo.pronunciationservice.model.SentenceEvaluationResult
-import de.demo.pronunciationservice.model.WordEvaluationResult
+import de.demo.pronunciationservice.model.PhonemeEvaluationDto
+import de.demo.pronunciationservice.model.RecognizedSpeechDto
+import de.demo.pronunciationservice.model.SentenceEvaluationDto
+import de.demo.pronunciationservice.model.WordEvaluationDto
 import edu.cmu.sphinx.api.Configuration
 import edu.cmu.sphinx.api.SpeechAligner
 import edu.cmu.sphinx.api.StreamSpeechRecognizer
@@ -36,28 +36,28 @@ class SphinxService(
 
     @Synchronized
     @Throws(Exception::class)
-    fun align(audioUrl: URL, transcript: String): SentenceEvaluationResult {
+    fun align(audioUrl: URL, transcript: String): SentenceEvaluationDto {
         val results = aligner.align(audioUrl, transcript)
-        val wordEvaluationResults = results.map { it.toWordEvaluationResult() }
+        val wordEvaluationResults = results.map { it.toWordEvaluationDto() }
 
-        return SentenceEvaluationResult(transcript = transcript, words = wordEvaluationResults)
+        return SentenceEvaluationDto(transcript = transcript, words = wordEvaluationResults)
     }
 
-    fun recognize(audioBytes: ByteArray): RecognizedSpeechResult {
+    fun recognize(audioBytes: ByteArray): RecognizedSpeechDto {
         speechRecognizer.startRecognition(audioBytes.inputStream())
         val result = speechRecognizer.result
         val transcript = result?.hypothesis ?: ""
-        val words = result?.words?.map { it.toWordEvaluationResult() } ?: emptyList()
+        val words = result?.words?.map { it.toWordEvaluationDto() } ?: emptyList()
         speechRecognizer.stopRecognition()
-        return RecognizedSpeechResult(
+        return RecognizedSpeechDto(
             transcript = transcript,
             words = words
         )
     }
 
-    private fun WordResult.toWordEvaluationResult(): WordEvaluationResult {
+    private fun WordResult.toWordEvaluationDto(): WordEvaluationDto {
         // Extract phoneme-level details if available
-        val phonemeResults = mutableListOf<PhonemeEvaluationResult>()
+        val phonemeResults = mutableListOf<PhonemeEvaluationDto>()
         val pronunciation = this.word.mostLikelyPronunciation
         val phones = pronunciation?.units
         if (phones != null && phones.isNotEmpty()) {
@@ -72,7 +72,7 @@ class SphinxService(
                 val phoneStart = wordStart + idx * phoneDuration
                 val phoneEnd = phoneStart + phoneDuration
                 phonemeResults.add(
-                    PhonemeEvaluationResult(
+                    PhonemeEvaluationDto(
                         phoneme = unit.name,
                         evaluation = pronunciation.probability.toDouble(),
                         startTime = phoneStart,
@@ -81,7 +81,7 @@ class SphinxService(
                 )
             }
         }
-        return WordEvaluationResult(
+        return WordEvaluationDto(
             word = this.word.spelling,
             startTime = this.timeFrame.start / 1000.0,
             endTime = this.timeFrame.end / 1000.0,

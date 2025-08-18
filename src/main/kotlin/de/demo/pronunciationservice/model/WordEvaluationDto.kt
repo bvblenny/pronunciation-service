@@ -1,0 +1,13 @@
+package de.demo.pronunciationservice.model
+
+/**
+ * Represents the evaluation result for a single word.
+ */
+data class WordEvaluationDto(
+    val word: String,
+    val startTime: Double,
+    val endTime: Double,
+    val evaluation: Float,
+    val phonemes: List<PhonemeEvaluationDto>? = null
+)
+

@@ -1,0 +1,54 @@
+package de.demo.pronunciationservice.controller
+
+import de.demo.pronunciationservice.model.LanguageDto
+import de.demo.pronunciationservice.model.TranscriptionResponseDto
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
+
+@RestController
+@RequestMapping("/api/transcription")
+class TranscriptionController(
+    private val transcriptionService: de.demo.pronunciationservice.service.TranscriptionService
+) {
+
+    @PostMapping(
+        "/transcribe",
+        consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun transcribe(
+        @RequestParam("file") file: MultipartFile,
+        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+    ): ResponseEntity<TranscriptionResponseDto> {
+        val contentType = file.contentType
+        val isAudio = contentType?.startsWith("audio/") == true
+        val isVideo = contentType?.startsWith("video/") == true
+        val hasKnownExt = (file.originalFilename ?: "").lowercase().let { name ->
+            name.endsWith(".mp3") ||
+            name.endsWith(".wav") ||
+            name.endsWith(".m4a") ||
+            name.endsWith(".webm") ||
+            name.endsWith(".mp4") ||
+            name.endsWith(".mov")
+        }
+        if (!isAudio && !isVideo && !hasKnownExt) {
+            return ResponseEntity.badRequest().build()
+        }
+
+        val response = transcriptionService.transcribe(file, languageCode)
+        return ResponseEntity.ok(response)
+    }
+
+    @GetMapping("/languages", produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun languages(): List<LanguageDto> {
+        return listOf(
+            LanguageDto("en-US", "English (US)"),
+            LanguageDto("en-GB", "English (UK)"),
+            LanguageDto("de-DE", "German"),
+            LanguageDto("fr-FR", "French"),
+            LanguageDto("es-ES", "Spanish")
+        )
+    }
+}

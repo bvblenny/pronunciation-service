@@ -1,8 +1,7 @@
 package de.demo.pronunciationservice.controller
 
-import de.demo.pronunciationservice.model.SentenceEvaluationResult
 import de.demo.pronunciationservice.service.PronunciationScore
-import de.demo.pronunciationservice.service.PronunciationScoringService
+import de.demo.pronunciationservice.service.PronunciationService
 import de.demo.pronunciationservice.service.SphinxService
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -14,7 +13,7 @@ import java.util.logging.Logger
 @RestController
 @RequestMapping("/api/pronunciation")
 class PronunciationController(
-    private val pronunciationScoringService: PronunciationScoringService,
+    private val pronunciationService: PronunciationService,
     private val sphinxService: SphinxService
 ) {
 
@@ -42,7 +41,7 @@ class PronunciationController(
 
         val audioBytes = audio.bytes
 
-        return pronunciationScoringService.scorePronunciation(
+        return pronunciationService.scorePronunciation(
             audioBytes = audioBytes,
             referenceText = referenceText,
             languageCode = languageCode

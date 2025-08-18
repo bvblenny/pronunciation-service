@@ -8,7 +8,7 @@ package de.demo.pronunciationservice.model
  * @property endTime The end time of the phoneme in seconds.
  * @property evaluation The confidence score for the phoneme.
  */
-data class PhonemeEvaluationResult(
+data class PhonemeEvaluationDto(
     val phoneme: String,
     val evaluation: Double,
     val startTime: Double?,

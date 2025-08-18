@@ -14,9 +14,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 @Service
-class PronunciationScoringService {
+class PronunciationService {
 
-    private val logger = Logger.getLogger(PronunciationScoringService::class.java.name)
+    private val logger = Logger.getLogger(PronunciationService::class.java.name)
 
     /**
      * Analyzes audio and compares it to a reference text to provide a pronunciation score.
@@ -216,8 +216,8 @@ data class PronunciationScore(
  * Represents details about a single word's pronunciation
  */
 data class WordDetail(
-    val word: String,           // The word as recognized
-    val confidence: Float,      // Confidence score from the API
-    val isCorrect: Boolean,     // Whether the word matches the reference
-    val expectedWord: String?   // The expected word from the reference text
+    val word: String,
+    val confidence: Float,
+    val isCorrect: Boolean,
+    val expectedWord: String?
 )
