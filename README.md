@@ -1,226 +1,45 @@
-# Pronunciation Scoring Service
+# Pronunciation Service
 
-A Spring Boot service that uses Google Cloud Speech-to-Text API to analyze audio and provide a pronunciation score by comparing it to a reference text.
+A Spring Boot service for evaluating pronunciation. It transcribes audio, compares it to a reference text, and returns a score with word-level feedback. It supports Google Cloud STT (primary) and CMU Sphinx (local) for quick recognition/alignment.
 
-## Features
+## Quick start
 
-- Audio pronunciation analysis using Google Cloud Speech-to-Text API
-- Scoring based on text similarity and word confidence
-- Detailed word-level feedback
-- REST API for easy integration
-
-## Prerequisites
-
-- Java 21 or higher
-- Gradle
-- Google Cloud account with Speech-to-Text API enabled
-- Google Cloud service account with appropriate permissions
-
-## Setup
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/pronunciation-service.git
-cd pronunciation-service
-```
-
-### 2. Configure Google Cloud credentials
-
-There are two ways to configure Google Cloud credentials:
-
-#### Option 1: Using a service account key file
-
-1. Create a service account in the Google Cloud Console
-2. Download the service account key file (JSON)
-3. Uncomment and update the following line in `application.properties`:
-
-```properties
-spring.cloud.gcp.credentials.location=file:/path/to/service-account-key.json
-```
-
-#### Option 2: Using environment variables (recommended for production)
-
-Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your service account key file:
-
-```bash
-# Linux/macOS
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
-
-# Windows
-set GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\service-account-key.json
-```
-
-### 3. Configure your Google Cloud project ID
-
-Update the project ID in `application.properties` or set the `GCP_PROJECT_ID` environment variable:
-
-```properties
-spring.cloud.gcp.project-id=${GCP_PROJECT_ID:your-project-id}
-```
-
-### 4. Build and run the application
+Prereqs: Java 21, Gradle, ffmpeg available on PATH (or set media.ffmpeg.path), optional Google Cloud credentials for STT.
 
 ```bash
 ./gradlew bootRun
-```
-
-The service will start on port 8080 by default.
-
-## API Usage
-
-### Score Pronunciation
-
-**Endpoint:** `POST /api/pronunciation/evaluate-stt`
-
-**Content-Type:** `multipart/form-data`
-
-**Parameters:**
-- `audio` (file): Audio file containing speech to be analyzed (WAV format, 16kHz sample rate recommended)
-- `referenceText` (string): The expected text that should be pronounced in the audio
-- `languageCode` (string, optional): The language code (e.g., "en-US", "de-DE"). Defaults to "en-US"
-
-**Example Request:**
-
-```bash
-curl -X POST http://localhost:8080/api/pronunciation/evaluate-stt \
-  -F "audio=@/path/to/audio.wav" \
-  -F "referenceText=Hello world" \
-  -F "languageCode=en-US"
-```
-
-**Example Response:**
-
-```json
-{
-  "score": 0.85,
-  "transcribedText": "hello world",
-  "wordDetails": [
-    {
-      "word": "hello",
-      "confidence": 0.92,
-      "isCorrect": true,
-      "expectedWord": "hello"
-    },
-    {
-      "word": "world",
-      "confidence": 0.88,
-      "isCorrect": true,
-      "expectedWord": "world"
-    }
-  ]
-}
-```
-
-### Health Check
-
-**Endpoint:** `GET /api/pronunciation/health`
-
-**Example Request:**
-
-```bash
+# Health check
 curl http://localhost:8080/api/pronunciation/health
 ```
 
-**Example Response:**
+## Configuration (application.properties)
 
-```json
-{
-  "status": "UP",
-  "service": "pronunciation-scoring"
-}
-```
+- sphinx.acoustic-model, sphinx.dictionary, sphinx.language-model
+- media.ffmpeg.path (e.g., C:/tools/ffmpeg/bin/ffmpeg.exe)
+- spring.servlet.multipart.max-file-size, spring.servlet.multipart.max-request-size
+- app.cors.*
+- Google STT: set GOOGLE_APPLICATION_CREDENTIALS or spring.cloud.gcp.credentials.location
 
-## Audio Format Recommendations
+## API
 
-For best results with the Google Cloud Speech-to-Text API:
+- POST /api/pronunciation/evaluate-stt — Evaluate pronunciation (Google STT)
+  - Inputs: audio (file), referenceText (string), languageCode (optional, default: en-US)
+  - Behavior: converts media to mono 16 kHz WAV, transcribes with Google STT, compares to reference
+  - Output: JSON { score, transcribedText, wordDetails[] }
 
-- Use WAV or FLAC format
-- 16-bit PCM encoding
-- 16kHz sample rate
-- Mono channel
-- Clear audio with minimal background noise
+- POST /api/transcription/transcribe — Transcribe media (Sphinx)
+  - Inputs: file (audio/video), languageCode (optional)
+  - Behavior: converts media to WAV, runs Sphinx recognition
+  - Output: JSON { transcript, segments[] { text, startMs, endMs } }
 
-## Scoring Methodology
+- POST /api/pronunciation/evaluate-sphinx-recognition — Quick recognition (Sphinx)
+  - Inputs: audio (file)
+  - Output: JSON { transcript, words[] with timings }
 
-The pronunciation score is calculated using:
-
-1. **Text Similarity (70%)**: How closely the transcribed text matches the reference text, using Levenshtein distance
-2. **Word Confidence (30%)**: The average confidence score from the Speech-to-Text API for each word
-
-The final score ranges from 0.0 (poor) to 1.0 (excellent).
+- POST /api/pronunciation/evaluate-sphinx-alignment — Forced alignment (Sphinx)
+  - Inputs: audio (file), referenceText (string)
+  - Output: JSON with word timings and phoneme estimates
 
 ## License
 
-[MIT License](LICENSE)
-
-# Pronunciation Service
-
-## Running the Backend (Spring Boot)
-
-```bash
-./mvnw spring-boot:run
-```
-
-## Running the Frontend (Angular)
-
-```bash
-cd frontend
-npm install
-ng serve
-```
-
-The Angular app will be available at [http://localhost:4200](http://localhost:4200) and will communicate with the backend at [http://localhost:8080](http://localhost:8080).
-
----
-
-## Run on LAN (development)
-
-Backend is already configured to bind on all interfaces (server.address=0.0.0.0) and permissive CORS for dev. Use these steps to access from other devices in your local network (Windows):
-
-1) Find your PC's LAN IP
-- Open PowerShell and run:
-```powershell
-ipconfig | findstr /R /C:"IPv4"
-```
-- Example result: 192.168.1.50
-
-2) Start the backend bound to LAN
-```powershell
-./gradlew bootRun
-```
-- It listens on 0.0.0.0:8080. From another device, test:
-```bash
-curl http://<PC_IP>:8080/api/pronunciation/health
-```
-
-3) Start the Angular dev server bound to LAN
-- In your Angular project folder:
-```powershell
-npm install
-ng serve --host 0.0.0.0 --port 4200
-```
-- Access from another device: http://<PC_IP>:4200
-
-4) Point the frontend to the backend
-- Set the API base URL in your Angular environment (e.g., environment.ts) to:
-```
-http://<PC_IP>:8080
-```
-
-5) Windows Firewall (if not reachable)
-- Allow Java and Node to accept Private network connections when prompted, or add rules:
-```powershell
-# Allow inbound 8080 (Spring Boot) on Private profile
-netsh advfirewall firewall add rule name="PronunciationService 8080" dir=in action=allow protocol=TCP localport=8080 profile=Private
-# Allow inbound 4200 (Angular) on Private profile
-netsh advfirewall firewall add rule name="Angular Dev 4200" dir=in action=allow protocol=TCP localport=4200 profile=Private
-```
-
-6) Quick checklist
-- Backend health from phone/laptop: http://<PC_IP>:8080/api/pronunciation/health → JSON status
-- Frontend loads at http://<PC_IP>:4200 and can call the backend at http://<PC_IP>:8080
-
-Notes
-- CORS is configured via app.cors.allowed-origin-patterns and accepts LAN hosts for dev. For production, restrict it to specific origins.
-- If ports are busy, change them (backend: set PORT env var or server.port; frontend: --port flag) and update firewall rules accordingly.
+MIT
