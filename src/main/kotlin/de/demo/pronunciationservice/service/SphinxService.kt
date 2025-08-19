@@ -12,7 +12,11 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.net.URL
 
-
+/**
+ * Thin wrapper around CMU Sphinx for:
+ * - forced alignment of a given transcript to an audio file
+ * - speech recognition to get a quick transcript and word timings
+ */
 @Service
 class SphinxService(
     @Value("\${sphinx.acoustic-model}") private val acousticModel: String,
@@ -20,35 +24,27 @@ class SphinxService(
     @Value("\${sphinx.language-model}") private val languageModel: String
 ) {
 
-    private val config = Configuration().apply {
+    private fun buildConfig(): Configuration = Configuration().apply {
         acousticModelPath = acousticModel
         dictionaryPath = dictionary
         languageModelPath = languageModel
     }
 
-    private val aligner = SpeechAligner(
-        this.acousticModel,
-        this.dictionary,
-        null
-    )
-
-    private val speechRecognizer = StreamSpeechRecognizer(config)
-
-    @Synchronized
     @Throws(Exception::class)
     fun align(audioUrl: URL, transcript: String): SentenceEvaluationDto {
+        val aligner = SpeechAligner(acousticModel, dictionary, null)
         val results = aligner.align(audioUrl, transcript)
         val wordEvaluationResults = results.map { it.toWordEvaluationDto() }
-
         return SentenceEvaluationDto(transcript = transcript, words = wordEvaluationResults)
     }
 
     fun recognize(audioBytes: ByteArray): RecognizedSpeechDto {
-        speechRecognizer.startRecognition(audioBytes.inputStream())
-        val result = speechRecognizer.result
+        val recognizer = StreamSpeechRecognizer(buildConfig())
+        recognizer.startRecognition(audioBytes.inputStream())
+        val result = recognizer.result
         val transcript = result?.hypothesis ?: ""
         val words = result?.words?.map { it.toWordEvaluationDto() } ?: emptyList()
-        speechRecognizer.stopRecognition()
+        recognizer.stopRecognition()
         return RecognizedSpeechDto(
             transcript = transcript,
             words = words
@@ -89,5 +85,4 @@ class SphinxService(
             phonemes = phonemeResults
         )
     }
-
 }

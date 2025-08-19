@@ -5,10 +5,9 @@ import com.google.cloud.speech.v1.RecognitionConfig
 import com.google.cloud.speech.v1.SpeechClient
 import com.google.cloud.speech.v1.SpeechRecognitionAlternative
 import com.google.protobuf.ByteString
-import edu.cmu.sphinx.api.Configuration
-import edu.cmu.sphinx.api.StreamSpeechRecognizer
+import de.demo.pronunciationservice.model.PronunciationScoreDto
+import de.demo.pronunciationservice.model.WordDetail
 import org.springframework.stereotype.Service
-import java.io.ByteArrayInputStream
 import java.util.logging.Logger
 import kotlin.math.max
 import kotlin.math.min
@@ -21,12 +20,12 @@ class PronunciationService {
     /**
      * Analyzes audio and compares it to a reference text to provide a pronunciation score.
      *
-     * @param audioBytes The audio data as a ByteArray
+     * @param audioBytes The audio data as a ByteArray (expected LINEAR16 16kHz mono)
      * @param referenceText The expected text that should be pronounced in the audio
      * @param languageCode The language code (e.g., "en-US", "de-DE")
      * @return A score between 0.0 and 1.0 representing how well the audio matches the reference text
      */
-    fun scorePronunciation(audioBytes: ByteArray, referenceText: String, languageCode: String): PronunciationScore {
+    fun evaluate(audioBytes: ByteArray, referenceText: String, languageCode: String): PronunciationScoreDto {
         SpeechClient.create().use { speechClient ->
             val audio = RecognitionAudio.newBuilder()
                 .setContent(ByteString.copyFrom(audioBytes))
@@ -35,7 +34,7 @@ class PronunciationService {
             val config = RecognitionConfig.newBuilder()
                 .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
                 .setLanguageCode(languageCode)
-                .setSampleRateHertz(22050)
+                .setSampleRateHertz(16000)
                 .setEnableWordConfidence(true)
                 .setEnableAutomaticPunctuation(false)
                 .build()
@@ -44,13 +43,13 @@ class PronunciationService {
 
             if (response.resultsCount == 0) {
                 logger.warning("No speech recognition results returned")
-                return PronunciationScore(0.0, "No speech detected", emptyList())
+                return PronunciationScoreDto(0.0, "No speech detected", emptyList())
             }
 
             val result = response.getResults(0)
             if (result.alternativesCount == 0) {
                 logger.warning("No alternatives in speech recognition results")
-                return PronunciationScore(0.0, "No transcription alternatives", emptyList())
+                return PronunciationScoreDto(0.0, "No transcription alternatives", emptyList())
             }
 
             val alternative = result.getAlternatives(0)
@@ -66,7 +65,7 @@ class PronunciationService {
             // Extract word-level details
             val wordDetails = extractWordDetails(alternative, referenceText)
 
-            return PronunciationScore(
+            return PronunciationScoreDto(
                 finalScore,
                 transcribedText,
                 wordDetails
@@ -74,9 +73,7 @@ class PronunciationService {
         }
     }
 
-    /**
-     * Calculates text similarity using Levenshtein distance
-     */
+
     private fun calculateTextSimilarity(actual: String, expected: String): Double {
         val actualLower = actual.lowercase()
         val expectedLower = expected.lowercase()
@@ -87,9 +84,6 @@ class PronunciationService {
         return if (maxLength == 0) 1.0 else (1.0 - distance.toDouble() / maxLength)
     }
 
-    /**
-     * Calculates Levenshtein distance between two strings
-     */
     private fun levenshteinDistance(s1: String, s2: String): Int {
         val m = s1.length
         val n = s2.length
@@ -115,9 +109,6 @@ class PronunciationService {
         return dp[m][n]
     }
 
-    /**
-     * Calculates average confidence score from word confidences
-     */
     private fun calculateConfidenceScore(alternative: SpeechRecognitionAlternative): Double {
         if (alternative.wordsCount == 0) return 0.0
 
@@ -129,9 +120,6 @@ class PronunciationService {
         return totalConfidence / alternative.wordsCount
     }
 
-    /**
-     * Extracts word-level details including confidence scores
-     */
     private fun extractWordDetails(alternative: SpeechRecognitionAlternative, referenceText: String): List<WordDetail> {
         val wordDetails = mutableListOf<WordDetail>()
 
@@ -158,66 +146,4 @@ class PronunciationService {
 
         return wordDetails
     }
-
-    /**
-     * Performs phoneme-level scoring using CMU Sphinx.
-     * @param audioBytes The audio data as a ByteArray
-     * @return List of phoneme results with their start/end times
-     */
-    fun scorePronunciationWithSphinx(audioBytes: ByteArray): List<PhonemeScore> {
-        val config = Configuration().apply {
-            acousticModelPath = "resource:/edu/cmu/sphinx/models/en-us/en-us"
-            dictionaryPath = "resource:/edu/cmu/sphinx/models/en-us/cmudict-en-us.dict"
-            languageModelPath = "resource:/edu/cmu/sphinx/models/en-us/en-us.lm.bin"
-        }
-        val recognizer = StreamSpeechRecognizer(config)
-        val stream = ByteArrayInputStream(audioBytes)
-        recognizer.startRecognition(stream)
-        val phonemeScores = mutableListOf<PhonemeScore>()
-        var result = recognizer.result
-        while (result != null) {
-            val words = result.words
-            for (word in words) {
-                // Sphinx does not directly output phonemes, but you can get word timings
-                // For true phoneme-level, you need to use a phoneme dictionary or aligner
-                phonemeScores.add(
-                    PhonemeScore(
-                        phoneme = word.word.toString(),
-                        startTime = word.timeFrame.start / 1000.0,
-                        endTime = word.timeFrame.end / 1000.0,
-                        confidence = word.confidence
-                    )
-                )
-            }
-            result = recognizer.getResult()
-        }
-        recognizer.stopRecognition()
-        return phonemeScores
-    }
-
-    data class PhonemeScore(
-        val phoneme: String,
-        val startTime: Double,
-        val endTime: Double,
-        val confidence: Double
-    )
 }
-
-/**
- * Represents the overall pronunciation score and details
- */
-data class PronunciationScore(
-    val score: Double,                // Overall score between 0.0 and 1.0
-    val transcribedText: String,      // Text as recognized by the Speech-to-Text API
-    val wordDetails: List<WordDetail> // Word-level details
-)
-
-/**
- * Represents details about a single word's pronunciation
- */
-data class WordDetail(
-    val word: String,
-    val confidence: Float,
-    val isCorrect: Boolean,
-    val expectedWord: String?
-)

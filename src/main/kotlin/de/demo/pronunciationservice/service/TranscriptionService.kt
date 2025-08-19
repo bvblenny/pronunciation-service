@@ -25,28 +25,7 @@ class TranscriptionService(
     fun transcribe(file: MultipartFile, languageCode: String = "en-US"): TranscriptionResponseDto {
         if (file.isEmpty) throw IllegalArgumentException("File is required")
 
-        val contentType = file.contentType?.let { MediaType.parseMediaType(it) }
-        val originalName = file.originalFilename ?: "upload"
-
-        val needsExtraction = when {
-            contentType == null -> shouldExtractByExtension(originalName)
-            contentType.type == "audio" && !contentType.subtype.equals("wav", ignoreCase = true) -> true
-            contentType.type == "video" -> true
-            supportedVideoTypes.contains(contentType) -> true
-            else -> false
-        }
-
-        val wavBytes = if (needsExtraction) {
-            val inFile = toTempFile(file)
-            try {
-                extractWavWithFfmpeg(inFile)
-            } finally {
-                inFile.delete()
-            }
-        } else {
-            // Already WAV; return bytes
-            file.bytes
-        }
+        val wavBytes = toWavBytes(file)
 
         val recognized = sphinxService.recognize(wavBytes)
         val segments = recognized.words.map {
@@ -60,6 +39,33 @@ class TranscriptionService(
             transcript = recognized.transcript.trim(),
             segments = segments
         )
+    }
+
+    /**
+     * Convert an uploaded media file (audio/video) to mono 16k WAV bytes if needed; if already WAV, returns original bytes.
+     */
+    fun toWavBytes(file: MultipartFile): ByteArray {
+        val contentType = file.contentType?.let { MediaType.parseMediaType(it) }
+        val originalName = file.originalFilename ?: "upload"
+
+        val needsExtraction = when {
+            contentType == null -> shouldExtractByExtension(originalName)
+            contentType.type == "audio" && !contentType.subtype.equals("wav", ignoreCase = true) -> true
+            contentType.type == "video" -> true
+            supportedVideoTypes.contains(contentType) -> true
+            else -> false
+        }
+
+        return if (needsExtraction) {
+            val inFile = toTempFile(file)
+            try {
+                extractWavWithFfmpeg(inFile)
+            } finally {
+                inFile.delete()
+            }
+        } else {
+            file.bytes
+        }
     }
 
     private fun toTempFile(file: MultipartFile): File {
