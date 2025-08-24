@@ -35,6 +35,8 @@ dependencies {
     implementation("io.grpc:grpc-protobuf-lite:1.70.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("net.sf.phat:sphinx4-core:5prealpha")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
