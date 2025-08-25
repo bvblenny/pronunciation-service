@@ -40,6 +40,14 @@ curl http://localhost:8080/api/pronunciation/health
   - Inputs: audio (file), referenceText (string)
   - Output: JSON with word timings and phoneme estimates
 
+## OpenAPI and Swagger UI
+
+The service includes OpenAPI documentation and Swagger UI.
+
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
+- OpenAPI YAML: http://localhost:8080/v3/api-docs.yaml
+
 ## License
 
 MIT
