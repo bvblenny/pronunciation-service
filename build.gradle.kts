@@ -33,7 +33,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.google.cloud:spring-cloud-gcp-starter")
     implementation("com.google.cloud:google-cloud-speech")
-    implementation("io.grpc:grpc-protobuf-lite:1.70.0")
+    implementation("io.grpc:grpc-protobuf-lite:1.75.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("net.sf.phat:sphinx4-core:5prealpha")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
