@@ -1,8 +1,8 @@
 # PowerShell script to create a sample audio file using Windows Speech Synthesis
 
 # Configuration
-$outputFile = "sample-audio.wav"
-$textToSpeak = "Hello world"
+$outputFile = "sample-audio-2.wav"
+$textToSpeak = "The quick brown fox jumps over the lazy dog"
 
 # Display banner
 Write-Host "====================================================="
