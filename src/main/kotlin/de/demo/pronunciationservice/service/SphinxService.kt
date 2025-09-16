@@ -13,9 +13,12 @@ import org.springframework.stereotype.Service
 import java.net.URL
 
 /**
- * Thin wrapper around CMU Sphinx for:
- * - forced alignment of a given transcript to an audio file
- * - speech recognition to get a quick transcript and word timings
+ * Service for speech recognition and alignment using CMU Sphinx.
+ * Provides methods to recognize speech from audio and align it with a given transcript.
+ *
+ * @property acousticModel Path to the acoustic model used by Sphinx.
+ * @property dictionary Path to the dictionary used by Sphinx.
+ * @property languageModel Path to the language model used by Sphinx.
  */
 @Service
 class SphinxService(
@@ -24,20 +27,40 @@ class SphinxService(
     @Value("\${sphinx.language-model}") private val languageModel: String
 ) {
 
+    /**
+     * Builds the Sphinx configuration using the provided model, dictionary, and language paths.
+     *
+     * @return A [Configuration] object configured for speech recognition.
+     */
     private fun buildConfig(): Configuration = Configuration().apply {
         acousticModelPath = acousticModel
         dictionaryPath = dictionary
         languageModelPath = languageModel
     }
 
+    /**
+     * Aligns the given audio with the provided transcript using the SpeechAligner.
+     *
+     * @param audioUrl The URL of the audio file to align.
+     * @param transcript The transcript to align the audio against.
+     * @return A [SentenceEvaluationDto] containing the alignment results.
+     * @throws Exception If an error occurs during alignment.
+     */
     @Throws(Exception::class)
     fun align(audioUrl: URL, transcript: String): SentenceEvaluationDto {
         val aligner = SpeechAligner(acousticModel, dictionary, null)
         val results = aligner.align(audioUrl, transcript)
         val wordEvaluationResults = results.map { it.toWordEvaluationDto() }
+
         return SentenceEvaluationDto(transcript = transcript, words = wordEvaluationResults)
     }
 
+    /**
+     * Recognizes speech from the given audio byte array.
+     *
+     * @param audioBytes The audio data as a byte array.
+     * @return A [RecognizedSpeechDto] containing the recognized transcript and word details.
+     */
     fun recognize(audioBytes: ByteArray): RecognizedSpeechDto {
         val recognizer = StreamSpeechRecognizer(buildConfig())
         recognizer.startRecognition(audioBytes.inputStream())
@@ -45,20 +68,24 @@ class SphinxService(
         val transcript = result?.hypothesis ?: ""
         val words = result?.words?.map { it.toWordEvaluationDto() } ?: emptyList()
         recognizer.stopRecognition()
+
         return RecognizedSpeechDto(
             transcript = transcript,
             words = words
         )
     }
 
+    /**
+     * Converts a [WordResult] from Sphinx into a [WordEvaluationDto].
+     * Extracts phoneme-level details and estimates phoneme timings.
+     *
+     * @return A [WordEvaluationDto] representing the word and its evaluation details.
+     */
     private fun WordResult.toWordEvaluationDto(): WordEvaluationDto {
-        // Extract phoneme-level details if available
         val phonemeResults = mutableListOf<PhonemeEvaluationDto>()
         val pronunciation = this.word.mostLikelyPronunciation
         val phones = pronunciation?.units
         if (phones != null && phones.isNotEmpty()) {
-            // Sphinx does not provide direct timing for each phoneme in WordResult,
-            // but we can estimate by splitting the word's time frame equally among phonemes
             val wordStart = this.timeFrame.start / 1000.0
             val wordEnd = this.timeFrame.end / 1000.0
             val duration = wordEnd - wordStart

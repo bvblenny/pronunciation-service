@@ -23,6 +23,7 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots") }
 }
 
 extra["springCloudGcpVersion"] = "6.1.1"
@@ -35,7 +36,8 @@ dependencies {
     implementation("com.google.cloud:google-cloud-speech")
     implementation("io.grpc:grpc-protobuf-lite:1.75.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("net.sf.phat:sphinx4-core:5prealpha")
+    implementation("edu.cmu.sphinx:sphinx4-core:5prealpha-SNAPSHOT")
+    implementation("edu.cmu.sphinx:sphinx4-data:5prealpha-SNAPSHOT")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
