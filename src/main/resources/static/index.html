@@ -1,277 +1,411 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pronunciation Scoring Demo</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-
-        }
-        h1, h2 {
-            color: #333;
-        }
-        .container {
-            border: 1px solid #ddd;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        input, textarea {
-            width: 100%;
-            padding: 8px;
-            margin: 8px 0;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        #result {
-            background-color: #f8f8f8;
-            padding: 15px;
-            border-radius: 5px;
-            white-space: pre-wrap;
-        }
-        .recording {
-            color: red;
-            font-weight: bold;
-        }
-        .meter {
-            height: 20px;
-            position: relative;
-            background: #f3f3f3;
-            border-radius: 25px;
-            padding: 5px;
-            box-shadow: inset 0 -1px 1px rgba(255,255,255,0.3);
-            margin-top: 10px;
-        }
-        .meter > span {
-            display: block;
-            height: 100%;
-            border-radius: 20px;
-            background-color: rgb(43,194,83);
-            position: relative;
-            overflow: hidden;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pronunciation Service • Demo Console</title>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root { --ok: #17a34a; --warn: #f59e0b; --err: #dc2626; --muted: #6b7280; }
+    header { margin-block: 1rem 0; }
+    .grid { align-items: start; }
+    .kpi { display:flex; gap:.5rem; align-items:baseline; }
+    .kpi .value { font-size:1.4rem; font-weight:700; }
+    .kpi .label { color: var(--muted); font-size:.9rem; }
+    .badge { display:inline-block; padding:.15rem .5rem; border-radius:999px; font-size:.75rem; font-weight:600; }
+    .match { background:#e8f5e9; color:#1b5e20; }
+    .sub { background:#fff7ed; color:#9a3412; }
+    .ins { background:#eef2ff; color:#1e3a8a; }
+    .del { background:#fee2e2; color:#991b1b; }
+    .muted { color: var(--muted); }
+    .toolbar { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+    .hidden { display:none !important; }
+    .progress { height:8px; margin:.25rem 0 0; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    table tbody tr td { vertical-align: top; }
+    .nowrap { white-space: nowrap; }
+    .center { text-align:center; }
+    .right { text-align:right; }
+  </style>
 </head>
 <body>
-    <h1>Pronunciation Scoring Demo</h1>
-    <p>This demo allows you to test the pronunciation scoring service by recording audio and comparing it to a reference text.</p>
+  <main class="container">
+    <header>
+      <h1>Pronunciation Service</h1>
+    </header>
 
-    <div class="container">
-        <h2>1. Service Health Check</h2>
-        <p>First, check if the service is running properly:</p>
-        <button id="healthCheck">Check Service Health</button>
-        <div id="healthResult"></div>
-    </div>
+    <!-- Health -->
+    <section>
+      <article>
+        <header class="toolbar">
+          <h2>Health</h2>
+          <button id="btnHealth" class="secondary">Check</button>
+          <small id="healthStatus" class="muted">Service status unknown</small>
+        </header>
+        <div id="healthDetails" class="muted"></div>
+      </article>
+    </section>
 
-    <div class="container">
-        <h2>2. Pronunciation Scoring</h2>
-        <p>Enter a reference text and either record your pronunciation or upload an audio file:</p>
+    <!-- Input -->
+    <section>
+      <article>
+        <header><h2>Input</h2></header>
+        <label>
+          Reference text
+          <textarea id="referenceText" rows="2" placeholder="Type the text you want to pronounce...">Hello world</textarea>
+        </label>
+        <div class="grid">
+          <label>
+            Language code
+            <input id="languageCode" type="text" value="en-US" placeholder="e.g. en-US, de-DE" />
+          </label>
+          <label>
+            Min pause (sec)
+            <input id="minPause" type="number" step="0.1" min="0" value="0.2" />
+            <small class="muted">Client-side filter for pause display only</small>
+          </label>
+        </div>
+      </article>
+    </section>
 
-        <label for="referenceText">Reference Text:</label>
-        <textarea id="referenceText" rows="2" placeholder="Enter the text you want to pronounce...">Hello world</textarea>
+    <!-- Capture & Upload -->
+    <section>
+      <div class="grid">
+        <article>
+          <header class="toolbar">
+            <h3>Record</h3>
+            <button id="btnStart">Start</button>
+            <button id="btnStop" class="secondary" disabled>Stop</button>
+            <small id="recStatus" class="muted">Idle</small>
+          </header>
+          <progress id="recLevel" class="progress" value="0" max="1"></progress>
+          <div id="playback" class="toolbar hidden">
+            <audio id="audio" controls></audio>
+            <button id="btnSubmitRecording" class="contrast">Analyze recording</button>
+            <button id="btnDiscard" class="secondary">Discard</button>
+          </div>
+        </article>
+        <article>
+          <header><h3>Upload</h3></header>
+          <label>
+            Audio file
+            <input id="fileInput" type="file" accept="audio/*" />
+          </label>
+          <div class="toolbar">
+            <button id="btnSubmitFile" class="contrast">Analyze file</button>
+            <small id="fileInfo" class="muted">Select a WAV/PCM if possible for best results</small>
+          </div>
+        </article>
+      </div>
+    </section>
 
-        <label for="languageCode">Language Code:</label>
-        <input type="text" id="languageCode" value="en-US" placeholder="e.g., en-US, de-DE">
+    <!-- Results -->
+    <section id="resultsSection" class="hidden">
+      <article>
+        <header class="toolbar">
+          <h2>Results</h2>
+          <small id="resultHint" class="muted">Latest analysis</small>
+        </header>
 
-        <div style="margin-top: 20px;">
-            <h3>Option 1: Record Audio</h3>
-            <button id="startRecording">Start Recording</button>
-            <button id="stopRecording" disabled>Stop Recording</button>
-            <span id="recordingStatus"></span>
+        <div class="grid">
+          <div>
+            <div class="kpi"><span class="label">WER</span><span id="kWer" class="value">–</span></div>
+            <div class="kpi"><span class="label">Substitutions</span><span id="kSub" class="value">–</span></div>
+          </div>
+          <div>
+            <div class="kpi"><span class="label">Insertions</span><span id="kIns" class="value">–</span></div>
+            <div class="kpi"><span class="label">Deletions</span><span id="kDel" class="value">–</span></div>
+          </div>
+          <div>
+            <div class="kpi"><span class="label">Duration</span><span id="kDur" class="value">–</span></div>
+            <div class="kpi"><span class="label">WPM</span><span id="kWpm" class="value">–</span></div>
+          </div>
+          <div>
+            <div class="kpi"><span class="label">Avg. word</span><span id="kAvg" class="value">–</span></div>
+            <div class="kpi"><span class="label">Words</span><span id="kCount" class="value">–</span></div>
+          </div>
         </div>
 
-        <div id="audioControls" style="display: none; margin-top: 15px;">
-            <p>Review your recording:</p>
-            <audio id="audioPlayback" controls></audio>
-            <button id="submitRecording">Submit Recording</button>
-        </div>
+        <details open>
+          <summary>Overview</summary>
+          <p class="mono"><strong>Reference:</strong> <span id="refOut"></span></p>
+          <p class="mono"><strong>Transcript:</strong> <span id="hypOut"></span></p>
+        </details>
 
-        <div style="margin-top: 20px;">
-            <h3>Option 2: Upload Audio File</h3>
-            <p>Select an audio file from your computer (WAV format recommended):</p>
-            <input type="file" id="audioFileInput" accept="audio/*" />
-            <button id="submitAudioFile" style="margin-top: 10px;">Submit Audio File</button>
-        </div>
+        <details open>
+          <summary>Word analysis</summary>
+          <div class="overflow-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th class="right nowrap">#</th>
+                  <th>Expected</th>
+                  <th>Actual</th>
+                  <th>Type</th>
+                  <th class="right nowrap">Start (s)</th>
+                  <th class="right nowrap">End (s)</th>
+                  <th class="right nowrap">Dur (s)</th>
+                  <th class="right nowrap">Eval</th>
+                </tr>
+              </thead>
+              <tbody id="wordsTbody"></tbody>
+            </table>
+          </div>
+        </details>
 
-        <div id="result" style="display: none; margin-top: 20px;"></div>
-    </div>
+        <details>
+          <summary>Pauses</summary>
+          <div class="overflow-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th class="right nowrap">Start (s)</th>
+                  <th class="right nowrap">End (s)</th>
+                  <th class="right nowrap">Duration (s)</th>
+                  <th>Between</th>
+                </tr>
+              </thead>
+              <tbody id="pausesTbody"></tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+    </section>
+  </main>
 
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
-        let audioBlob;
+  <template id="rowWordTpl">
+    <tr>
+      <td class="right"></td>
+      <td class="mono"></td>
+      <td class="mono"></td>
+      <td><span class="badge"></span></td>
+      <td class="right"></td>
+      <td class="right"></td>
+      <td class="right"></td>
+      <td class="right"></td>
+    </tr>
+  </template>
+  <template id="rowPauseTpl">
+    <tr>
+      <td class="right"></td>
+      <td class="right"></td>
+      <td class="right"></td>
+      <td class="mono"></td>
+    </tr>
+  </template>
 
-        // Health check
-        document.getElementById('healthCheck').addEventListener('click', async () => {
-            const healthResult = document.getElementById('healthResult');
-            healthResult.innerHTML = 'Checking service health...';
+  <script>
+    // --- Utilities ---
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const fmt = (n, d=2) => (n ?? null) === null ? '–' : Number(n).toFixed(d);
+    const pct = (n, d=1) => (n ?? null) === null ? '–' : (Number(n) * 100).toFixed(d) + '%';
 
-            try {
-                const response = await fetch('/api/pronunciation/health');
-                const data = await response.json();
+    function setLoading(button, loading) {
+      if (!button) return;
+      if (loading) {
+        button.setAttribute('aria-busy', 'true');
+        button.disabled = true;
+      } else {
+        button.removeAttribute('aria-busy');
+        button.disabled = false;
+      }
+    }
 
-                healthResult.innerHTML = `
-                    <p>Status: <strong>${data.status}</strong></p>
-                    <p>Service: ${data.service}</p>
-                `;
-            } catch (error) {
-                healthResult.innerHTML = `
-                    <p style="color: red;">Error: Could not connect to the service.</p>
-                    <p>Make sure the pronunciation service is running.</p>
-                `;
-            }
-        });
+    function badgeFor(type) {
+      const span = document.createElement('span');
+      span.className = 'badge ' + ({
+        MATCH: 'match', SUBSTITUTION: 'sub', INSERTION: 'ins', DELETION: 'del'
+      }[type] || '');
+      span.textContent = type;
+      return span;
+    }
 
-        // Recording functionality
-        document.getElementById('startRecording').addEventListener('click', async () => {
-            audioChunks = [];
-            const recordingStatus = document.getElementById('recordingStatus');
+    function blobDuration(blob) {
+      // Best-effort: create audio element and compute metadata duration
+      return new Promise(resolve => {
+        const audio = new Audio(URL.createObjectURL(blob));
+        audio.addEventListener('loadedmetadata', () => resolve(audio.duration || null));
+        audio.addEventListener('error', () => resolve(null));
+      });
+    }
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
+    // --- Health ---
+    $('#btnHealth').addEventListener('click', async () => {
+      const btn = $('#btnHealth');
+      setLoading(btn, true);
+      try {
+        const resp = await fetch('/api/pronunciation/health');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        $('#healthStatus').textContent = `Service: ${data.status || 'UNKNOWN'}`;
+        $('#healthStatus').style.color = data.status === 'UP' ? 'var(--ok)' : 'var(--warn)';
+        $('#healthDetails').textContent = `Name: ${data.service || 'n/a'}`;
+      } catch (e) {
+        $('#healthStatus').textContent = 'Service: DOWN';
+        $('#healthStatus').style.color = 'var(--err)';
+        $('#healthDetails').textContent = 'Could not reach backend.';
+      } finally {
+        setLoading(btn, false);
+      }
+    });
 
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
-                };
+    // --- Recording ---
+    let mediaRecorder, recChunks = [], recStream, levelTimer;
 
-                mediaRecorder.onstop = () => {
-                    audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    document.getElementById('audioPlayback').src = audioUrl;
-                    document.getElementById('audioControls').style.display = 'block';
-                    recordingStatus.textContent = '';
+    async function startRecording() {
+      $('#recStatus').textContent = 'Requesting microphone…';
+      try {
+        recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        $('#recStatus').textContent = 'Microphone permission denied';
+        return;
+      }
 
-                    // Stop all tracks to release the microphone
-                    stream.getTracks().forEach(track => track.stop());
-                };
+      recChunks = [];
+      mediaRecorder = new MediaRecorder(recStream);
+      mediaRecorder.ondataavailable = (e) => recChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recChunks, { type: 'audio/webm' });
+        $('#audio').src = URL.createObjectURL(blob);
+        $('#playback').classList.remove('hidden');
+        $('#recStatus').textContent = 'Recorded';
+        stopLevelMeter();
+        recStream.getTracks().forEach(t => t.stop());
+      };
 
-                mediaRecorder.start();
-                recordingStatus.textContent = 'Recording...';
-                recordingStatus.className = 'recording';
+      mediaRecorder.start();
+      $('#recStatus').textContent = 'Recording…';
+      $('#btnStart').disabled = true;
+      $('#btnStop').disabled = false;
+      startLevelMeter(recStream);
+    }
 
-                document.getElementById('startRecording').disabled = true;
-                document.getElementById('stopRecording').disabled = false;
-            } catch (error) {
-                recordingStatus.textContent = 'Error accessing microphone. Please ensure you have granted permission.';
-                console.error('Error accessing microphone:', error);
-            }
-        });
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      $('#btnStart').disabled = false;
+      $('#btnStop').disabled = true;
+    }
 
-        document.getElementById('stopRecording').addEventListener('click', () => {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                document.getElementById('startRecording').disabled = false;
-                document.getElementById('stopRecording').disabled = true;
-            }
-        });
+    function discardRecording() {
+      $('#audio').removeAttribute('src');
+      $('#playback').classList.add('hidden');
+      recChunks = [];
+      $('#recStatus').textContent = 'Idle';
+    }
 
-        // Helper function to submit audio and display results
-        async function submitAudioForScoring(audioData) {
-            const referenceText = document.getElementById('referenceText').value.trim();
-            if (!referenceText) {
-                alert('Please enter a reference text.');
-                return;
-            }
+    function startLevelMeter(stream) {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      function tick() {
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i=0;i<dataArray.length;i++) { const v=(dataArray[i]-128)/128; sum += v*v; }
+        const rms = Math.sqrt(sum / dataArray.length);
+        $('#recLevel').value = Math.min(1, rms * 3);
+      }
+      levelTimer = setInterval(tick, 100);
+    }
+    function stopLevelMeter() { clearInterval(levelTimer); $('#recLevel').value = 0; }
 
-            const languageCode = document.getElementById('languageCode').value.trim();
-            const resultDiv = document.getElementById('result');
+    $('#btnStart').addEventListener('click', startRecording);
+    $('#btnStop').addEventListener('click', stopRecording);
+    $('#btnDiscard').addEventListener('click', discardRecording);
 
-            resultDiv.innerHTML = 'Submitting audio for scoring...';
-            resultDiv.style.display = 'block';
+    // --- Submit helpers ---
+    async function analyzeBlob(audioBlob) {
+      const ref = $('#referenceText').value.trim();
+      if (!ref) { alert('Please enter a reference text.'); return; }
+      const lang = $('#languageCode').value.trim() || 'en-US';
 
-            const formData = new FormData();
-            formData.append('audio', audioData);
-            formData.append('referenceText', referenceText);
-            formData.append('languageCode', languageCode);
+      const btns = $$('.contrast'); btns.forEach(b => setLoading(b, true));
+      $('#resultHint').textContent = 'Analyzing…';
 
-            try {
-                const response = await fetch('/api/pronunciation/analyze-detailed', {
-                    method: 'POST',
-                    body: formData
-                });
+      const form = new FormData();
+      form.append('audio', audioBlob);
+      form.append('referenceText', ref);
+      form.append('languageCode', lang);
 
-                if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`);
-                }
+      try {
+        const resp = await fetch('/api/pronunciation/analyze-detailed', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        renderResults(data);
+        $('#resultsSection').classList.remove('hidden');
+        $('#resultHint').textContent = 'Done';
+        window.scrollTo({ top: $('#resultsSection').offsetTop - 12, behavior: 'smooth' });
+      } catch (e) {
+        alert('Analysis failed: ' + (e?.message || e));
+      } finally {
+        btns.forEach(b => setLoading(b, false));
+      }
+    }
 
-                const data = await response.json();
+    $('#btnSubmitRecording').addEventListener('click', async () => {
+      if (!recChunks.length) { alert('Please record first.'); return; }
+      const blob = new Blob(recChunks, { type: 'audio/webm' });
+      await analyzeBlob(blob);
+    });
 
-                // Format the result
-                let resultHtml = `
-                    <h3>Pronunciation Score: ${(data.score * 100).toFixed(1)}%</h3>
-                    <div class="meter">
-                        <span style="width: ${data.score * 100}%"></span>
-                    </div>
-                    <p>Transcribed Text: "${data.transcribedText}"</p>
-                    <p>Reference Text: "${referenceText}"</p>
-                    <h4>Word Details:</h4>
-                    <ul>
-                `;
+    $('#btnSubmitFile').addEventListener('click', async () => {
+      const f = $('#fileInput').files?.[0];
+      if (!f) { alert('Please select an audio file.'); return; }
+      $('#fileInfo').textContent = `${f.name} • ${(f.size/1024/1024).toFixed(2)} MB`;
+      await analyzeBlob(f);
+    });
 
-                data.wordDetails.forEach(word => {
-                    const confidencePercent = (word.confidence * 100).toFixed(1);
-                    const color = word.isCorrect ? 'green' : 'red';
+    // --- Render ---
+    function renderResults(d) {
+      // KPIs
+      $('#kWer').textContent = pct(d.wer);
+      $('#kSub').textContent = d.substitutions;
+      $('#kIns').textContent = d.insertions;
+      $('#kDel').textContent = d.deletions;
+      $('#kDur').textContent = d.totalDurationSec != null ? fmt(d.totalDurationSec, 2) + 's' : '–';
+      $('#kWpm').textContent = d.speechRateWpm != null ? fmt(d.speechRateWpm, 1) : '–';
+      $('#kAvg').textContent = d.averageWordDurationSec != null ? fmt(d.averageWordDurationSec, 2) + 's' : '–';
+      $('#kCount').textContent = d.words?.length ?? 0;
 
-                    resultHtml += `
-                        <li style="color: ${color}">
-                            <strong>${word.word}</strong> (${confidencePercent}% confidence)
-                            ${!word.isCorrect && word.expectedWord ? ` - Expected: "${word.expectedWord}"` : ''}
-                        </li>
-                    `;
-                });
+      // Texts
+      $('#refOut').textContent = d.referenceText || '';
+      $('#hypOut').textContent = (d.transcript || '').trim();
 
-                resultHtml += '</ul>';
-                resultDiv.innerHTML = resultHtml;
+      // Words table
+      const tbody = $('#wordsTbody');
+      tbody.innerHTML = '';
+      (d.words || []).forEach(w => {
+        const row = $('#rowWordTpl').content.firstElementChild.cloneNode(true);
+        const cells = row.children;
+        cells[0].textContent = w.index;
+        cells[1].textContent = w.expected ?? '';
+        cells[2].textContent = w.actual ?? '';
+        const b = badgeFor(w.errorType);
+        cells[3].innerHTML = ''; cells[3].appendChild(b);
+        cells[4].textContent = w.startTimeSec != null ? fmt(w.startTimeSec, 2) : '–';
+        cells[5].textContent = w.endTimeSec != null ? fmt(w.endTimeSec, 2) : '–';
+        cells[6].textContent = w.durationSec != null ? fmt(w.durationSec, 2) : '–';
+        cells[7].textContent = w.evaluation != null ? fmt(w.evaluation, 2) : '–';
+        tbody.appendChild(row);
+      });
 
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <p style="color: red;">Error: ${error.message}</p>
-                    <p>Make sure the pronunciation service is running and properly configured.</p>
-                `;
-            }
-        }
-
-        // Submit recorded audio for scoring
-        document.getElementById('submitRecording').addEventListener('click', async () => {
-            if (!audioBlob) {
-                alert('Please record audio first.');
-                return;
-            }
-
-            await submitAudioForScoring(audioBlob);
-        });
-
-        // Submit uploaded audio file for scoring
-        document.getElementById('submitAudioFile').addEventListener('click', async () => {
-            const fileInput = document.getElementById('audioFileInput');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                alert('Please select an audio file first.');
-                return;
-            }
-
-            const audioFile = fileInput.files[0];
-            await submitAudioForScoring(audioFile);
-        });
-    </script>
+      // Pauses table (client-side min filter)
+      const pbody = $('#pausesTbody');
+      pbody.innerHTML = '';
+      const minPause = Number($('#minPause').value) || 0;
+      (d.pauses || []).filter(p => p.durationSec >= minPause).forEach(p => {
+        const row = $('#rowPauseTpl').content.firstElementChild.cloneNode(true);
+        const cells = row.children;
+        cells[0].textContent = fmt(p.startTimeSec, 2);
+        cells[1].textContent = fmt(p.endTimeSec, 2);
+        cells[2].textContent = fmt(p.durationSec, 2);
+        cells[3].textContent = `${p.precedingWord || ''} → ${p.followingWord || ''}`;
+        pbody.appendChild(row);
+      });
+    }
+  </script>
 </body>
 </html>
