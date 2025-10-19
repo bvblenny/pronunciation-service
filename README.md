@@ -6,6 +6,7 @@ Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it
 
 - Multiple transcription engines: cloud accuracy (Google) + offline fallback (Sphinx) behind a common provider interface.
 - Forced alignment & scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
+- **Prosody (suprasegmental) scoring**: Explainable, extensible scoring for rhythm, intonation, stress, pacing, and fluency with diagnostic metrics and learner feedback.
 - Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg for consistent STT quality.
 - Clean layering: Controller → Media/Transcription → Alignment & Scoring → DTOs (OpenAPI documented).
 - Extensible: drop in new STT (e.g., Whisper, Vosk, Azure) with minimal touch points.
@@ -41,19 +42,20 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 - POST /api/transcription/transcribe-with-subtitles  
   Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }
 
+- POST /api/prosody/evaluate
+  **Prosody scoring**: Multipart: audio, referenceText (optional), languageCode  
+  → { overallScore, subScores{rhythm, intonation, stress, pacing, fluency}, diagnostics, feedback[], features, metadata }  
+  Provides explainable scoring with numeric sub-scores, detailed metrics explaining the scores, and actionable learner hints.
+
+- POST /api/prosody/features 
+  Extract raw prosody features (pitch, energy, timing) without scoring  
+  → { duration, pitchContour[], energyContour[], wordTimings[], pauseRegions[] }
+
+- GET /api/prosody/health  
+  Prosody service status with capabilities.
+
 - GET /api/pronunciation/health  
   Simple service status.
-
-## Subtitle Generation
-
-The service supports automatic subtitle generation from audio or video files:
-
-1. Upload audio/video file via POST /api/transcription/transcribe-with-subtitles
-2. Service transcribes the media using CMU Sphinx
-3. Returns transcript, timing segments, and SRT-formatted subtitle content
-4. SRT format includes sequence numbers, timecodes (HH:MM:SS,mmm), and text
-
-The generated subtitles can be saved as .srt files and used with media players or video editing software.
 
 ## Scoring
 
