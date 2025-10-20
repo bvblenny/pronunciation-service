@@ -44,6 +44,18 @@ class TranscriptionController(
         return ResponseEntity.ok(response)
     }
 
+    /**
+     * Transcribes audio or video file and generates SRT format subtitles.
+     * 
+     * This endpoint extends the transcription functionality by generating subtitle content
+     * in SRT (SubRip Subtitle) format along with the transcription. The timing information
+     * from the transcription segments is formatted into standard SRT format suitable for
+     * use with media players and video editing software.
+     *
+     * @param file The audio or video file to transcribe (MP3, WAV, M4A, WebM, MP4, MOV)
+     * @param languageCode The language code for transcription (default: en-US)
+     * @return SubtitleResponseDto containing transcript, segments, and SRT-formatted subtitle content
+     */
     @PostMapping(
         "/transcribe-with-subtitles",
         consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
