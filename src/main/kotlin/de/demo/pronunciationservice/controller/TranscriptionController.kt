@@ -1,7 +1,9 @@
 package de.demo.pronunciationservice.controller
 
 import de.demo.pronunciationservice.model.LanguageDto
+import de.demo.pronunciationservice.model.SubtitleResponseDto
 import de.demo.pronunciationservice.model.TranscriptionResponseDto
+import de.demo.pronunciationservice.service.SubtitleService
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -10,7 +12,8 @@ import org.springframework.web.multipart.MultipartFile
 @RestController
 @RequestMapping("/api/transcription")
 class TranscriptionController(
-    private val transcriptionService: de.demo.pronunciationservice.service.TranscriptionService
+    private val transcriptionService: de.demo.pronunciationservice.service.TranscriptionService,
+    private val subtitleService: SubtitleService
 ) {
 
     @PostMapping(
@@ -38,6 +41,42 @@ class TranscriptionController(
         }
 
         val response = transcriptionService.transcribe(file, languageCode)
+        return ResponseEntity.ok(response)
+    }
+
+    @PostMapping(
+        "/transcribe-with-subtitles",
+        consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun transcribeWithSubtitles(
+        @RequestParam("file") file: MultipartFile,
+        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+    ): ResponseEntity<SubtitleResponseDto> {
+        val contentType = file.contentType
+        val isAudio = contentType?.startsWith("audio/") == true
+        val isVideo = contentType?.startsWith("video/") == true
+        val hasKnownExt = (file.originalFilename ?: "").lowercase().let { name ->
+            name.endsWith(".mp3") ||
+            name.endsWith(".wav") ||
+            name.endsWith(".m4a") ||
+            name.endsWith(".webm") ||
+            name.endsWith(".mp4") ||
+            name.endsWith(".mov")
+        }
+        if (!isAudio && !isVideo && !hasKnownExt) {
+            return ResponseEntity.badRequest().build()
+        }
+
+        val transcriptionResponse = transcriptionService.transcribe(file, languageCode)
+        val subtitleContent = subtitleService.generateSrt(transcriptionResponse.segments ?: emptyList())
+        
+        val response = SubtitleResponseDto(
+            transcript = transcriptionResponse.transcript,
+            segments = transcriptionResponse.segments,
+            subtitleContent = subtitleContent
+        )
+        
         return ResponseEntity.ok(response)
     }
 

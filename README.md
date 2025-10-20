@@ -38,8 +38,22 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 - POST /api/transcription/transcribe  
   Raw Sphinx transcription with segments → { transcript, segments[] }
 
+- POST /api/transcription/transcribe-with-subtitles  
+  Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }
+
 - GET /api/pronunciation/health  
   Simple service status.
+
+## Subtitle Generation
+
+The service supports automatic subtitle generation from audio or video files:
+
+1. Upload audio/video file via POST /api/transcription/transcribe-with-subtitles
+2. Service transcribes the media using CMU Sphinx
+3. Returns transcript, timing segments, and SRT-formatted subtitle content
+4. SRT format includes sequence numbers, timecodes (HH:MM:SS,mmm), and text
+
+The generated subtitles can be saved as .srt files and used with media players or video editing software.
 
 ## Scoring
 
@@ -60,10 +74,11 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 ## Architecture
 
-- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService).
+- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, SubtitleService).
 - Strategy abstraction for transcription providers keeps evaluation logic agnostic.
 - Temporary WAV handling ensures consistent input for engines.
 - DTO layer isolates internal scoring model from API payloads for future versioning.
+- SubtitleService generates SRT-formatted subtitles from transcription segments with timing information.
 
 ## Extending a New STT Provider
 
