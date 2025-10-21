@@ -83,8 +83,8 @@ class ProsodyFeatureExtractionServiceTests {
     fun `extractFeatures should build word timings from sphinx results`() {
         val wavBytes = createTestWavFile()
         val mockWords = listOf(
-            WordEvaluationDto("hello", 0.0, 0.5, 0.95),
-            WordEvaluationDto("world", 0.6, 1.1, 0.92)
+            WordEvaluationDto("hello", 0.0, 0.5, 0.95f),
+            WordEvaluationDto("world", 0.6, 1.1, 0.92f)
         )
 
         whenever(mockSphinxService.recognize(any())).thenReturn(
@@ -104,8 +104,8 @@ class ProsodyFeatureExtractionServiceTests {
     fun `extractFeatures should detect pauses between words`() {
         val wavBytes = createTestWavFile()
         val mockWords = listOf(
-            WordEvaluationDto("hello", 0.0, 0.5, 0.95),
-            WordEvaluationDto("world", 1.0, 1.5, 0.92) // 0.5 sec gap - should be detected as pause
+            WordEvaluationDto("hello", 0.0, 0.5, 0.95f),
+            WordEvaluationDto("world", 1.0, 1.5, 0.92f) // 0.5 sec gap - should be detected as pause
         )
 
         whenever(mockSphinxService.recognize(any())).thenReturn(
@@ -124,8 +124,8 @@ class ProsodyFeatureExtractionServiceTests {
     fun `extractFeatures should not detect short gaps as pauses`() {
         val wavBytes = createTestWavFile()
         val mockWords = listOf(
-            WordEvaluationDto("hello", 0.0, 0.5, 0.95),
-            WordEvaluationDto("world", 0.55, 1.0, 0.92) // Only 0.05 sec gap
+            WordEvaluationDto("hello", 0.0, 0.5, 0.95f),
+            WordEvaluationDto("world", 0.55, 1.0, 0.92f) // Only 0.05 sec gap
         )
 
         whenever(mockSphinxService.recognize(any())).thenReturn(
@@ -141,9 +141,9 @@ class ProsodyFeatureExtractionServiceTests {
     fun `extractFeatures should detect filled pauses`() {
         val wavBytes = createTestWavFile()
         val mockWords = listOf(
-            WordEvaluationDto("hello", 0.0, 0.5, 0.95),
-            WordEvaluationDto("um", 0.7, 0.9, 0.80),  // Filled pause
-            WordEvaluationDto("world", 1.1, 1.5, 0.92)
+            WordEvaluationDto("hello", 0.0, 0.5, 0.95f),
+            WordEvaluationDto("um", 0.7, 0.9, 0.80f),  // Filled pause
+            WordEvaluationDto("world", 1.1, 1.5, 0.92f)
         )
 
         whenever(mockSphinxService.recognize(any())).thenReturn(
@@ -159,9 +159,9 @@ class ProsodyFeatureExtractionServiceTests {
     fun `extractFeatures should estimate syllable count correctly`() {
         val wavBytes = createTestWavFile()
         val mockWords = listOf(
-            WordEvaluationDto("cat", 0.0, 0.3, 0.95),      // 1 syllable
-            WordEvaluationDto("hello", 0.3, 0.7, 0.92),    // 2 syllables
-            WordEvaluationDto("beautiful", 0.7, 1.2, 0.88) // 3 syllables
+            WordEvaluationDto("cat", 0.0, 0.3, 0.95f),      // 1 syllable
+            WordEvaluationDto("hello", 0.3, 0.7, 0.92f),    // 2 syllables
+            WordEvaluationDto("beautiful", 0.7, 1.2, 0.88f) // 3 syllables
         )
 
         whenever(mockSphinxService.recognize(any())).thenReturn(
@@ -260,8 +260,8 @@ class ProsodyFeatureExtractionServiceTests {
 
     private fun createMockWordEvaluations(): List<WordEvaluationDto> {
         return listOf(
-            WordEvaluationDto("hello", 0.0, 0.5, 0.95),
-            WordEvaluationDto("world", 0.6, 1.0, 0.92)
+            WordEvaluationDto("hello", 0.0, 0.5, 0.95f),
+            WordEvaluationDto("world", 0.6, 1.0, 0.92f)
         )
     }
 }
