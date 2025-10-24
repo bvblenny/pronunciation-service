@@ -156,10 +156,20 @@ Run tests with:
 
 ### Common Issues
 
-1. **File too large**: Check `spring.servlet.multipart.max-file-size` setting (default: 25MB)
+1. **File too large**: Check `spring.servlet.multipart.max-file-size` setting (default: 500MB)
 2. **Unsupported format**: Ensure file format is in the supported list
 3. **FFmpeg not found**: Ensure FFmpeg is installed and in PATH or configure `media.ffmpeg.path`
 4. **Poor subtitle quality**: Check audio quality and clarity; consider audio preprocessing
+
+### Performance Considerations
+
+The service now supports uploads up to 500MB to accommodate larger video files. When working with large files:
+
+1. **Processing Time**: Larger files require more time for transcription. Expect several minutes for long videos.
+2. **Memory Usage**: Large video files are loaded into memory during processing. Ensure adequate heap space (recommended: `-Xmx2g` or higher).
+3. **Network Timeout**: Configure appropriate timeouts in your HTTP client and proxy/load balancer for large uploads.
+4. **Disk Space**: Temporary files are created during processing. Ensure sufficient disk space in the system temp directory.
+5. **Concurrent Processing**: Limit concurrent large file uploads to avoid resource exhaustion.
 
 ### Debug Mode
 
