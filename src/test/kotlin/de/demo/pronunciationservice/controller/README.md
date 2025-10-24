@@ -6,7 +6,9 @@ This directory contains end-to-end tests for the large file upload functionality
 
 ## Test Coverage
 
-The `LargeFileUploadE2ETest` class provides comprehensive coverage for:
+### LargeFileUploadE2ETest (Integration Tests)
+
+Full end-to-end integration tests that require the complete Spring Boot context:
 
 1. **Small File Upload (1MB)** - Baseline test for basic functionality
 2. **Medium File Upload (50MB)** - Tests mid-range file handling
@@ -22,6 +24,18 @@ The `LargeFileUploadE2ETest` class provides comprehensive coverage for:
    - Empty file rejection
    - Different file formats (WAV, MP3)
 
+### LargeFileUploadControllerTest (Unit Tests)
+
+Controller-level unit tests with mocked services (does not require Sphinx dependencies):
+
+1. **Small File Upload (1MB)** - Validates controller accepts and processes small files
+2. **Medium File Upload (50MB)** - Validates medium file handling
+3. **Large File Upload (200MB)** - Validates large file processing
+4. **Near-Limit Upload (400MB)** - Validates files near 500MB limit
+5. **Empty File Rejection** - Verifies proper error handling
+6. **Default Parameters** - Tests default language code handling
+7. **Sequential Uploads** - Tests multiple file uploads in sequence
+
 ## File Size Limits
 
 Current configuration (from `application.properties`):
@@ -30,11 +44,19 @@ Current configuration (from `application.properties`):
 
 ## Test Implementation
 
-The tests use:
+### Integration Tests (LargeFileUploadE2ETest)
 - **SpringBootTest** with **AutoConfigureMockMvc** for full integration testing
 - **MockMultipartFile** to simulate file uploads
 - Java Sound API to generate valid WAV files programmatically
 - Various file sizes to test upload capacity
+- Requires all dependencies including Sphinx
+
+### Unit Tests (LargeFileUploadControllerTest)
+- **WebMvcTest** for lightweight controller testing
+- **MockBean** to mock service dependencies
+- **Mockito** for service behavior stubbing
+- Same WAV file generation utility
+- Does not require Sphinx dependencies
 
 ### WAV File Generation
 
@@ -49,12 +71,17 @@ The helper method `generateWavFile(targetSizeMB: Int)` creates valid WAV audio f
 # Run all tests
 ./gradlew test
 
-# Run only large file upload tests
+# Run only controller unit tests (works without Sphinx dependencies)
+./gradlew test --tests LargeFileUploadControllerTest
+
+# Run only e2e integration tests (requires Sphinx dependencies)
 ./gradlew test --tests LargeFileUploadE2ETest
 
 # Run a specific test
-./gradlew test --tests LargeFileUploadE2ETest.testLargeFileUpload
+./gradlew test --tests LargeFileUploadControllerTest.testLargeFileUpload
 ```
+
+**Note:** The controller unit tests (`LargeFileUploadControllerTest`) will run successfully even without the Sphinx dependencies, as they mock all service dependencies. The integration tests (`LargeFileUploadE2ETest`) require the full application context and all dependencies.
 
 ## Performance Considerations
 
