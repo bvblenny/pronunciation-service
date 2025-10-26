@@ -25,7 +25,7 @@ class SubtitleServiceTest {
         )
 
         val result = subtitleService.generateSrt(segments)
-        
+
         val expected = """
             |1
             |00:00:00,000 --> 00:00:02,000
@@ -57,16 +57,14 @@ class SubtitleServiceTest {
         )
 
         val result = subtitleService.generateSrt(segments)
-        
+
         val expected = """
             |1
             |00:00:00,000 --> 00:00:02,000
             |Hello world
-            |
             |2
             |00:00:02,500 --> 00:00:05,000
             |This is a test
-            |
             |3
             |00:00:05,500 --> 00:00:08,000
             |Subtitle generation
@@ -87,7 +85,7 @@ class SubtitleServiceTest {
         )
 
         val result = subtitleService.generateSrt(segments)
-        
+
         val expected = """
             |1
             |01:01:01,500 --> 01:01:05,000
@@ -109,7 +107,7 @@ class SubtitleServiceTest {
         )
 
         val result = subtitleService.generateSrt(segments)
-        
+
         val expected = """
             |1
             |00:00:01,234 --> 00:00:05,678
