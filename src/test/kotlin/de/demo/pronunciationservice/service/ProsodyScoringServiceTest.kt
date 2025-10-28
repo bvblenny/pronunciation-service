@@ -4,12 +4,8 @@ import de.demo.pronunciationservice.model.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
-import org.mockito.Mockito.*
-import org.mockito.kotlin.any
-import org.mockito.kotlin.whenever
-import kotlin.math.abs
 
-class ProsodyScoringServiceTests {
+class ProsodyScoringServiceTest {
 
     private lateinit var scoringService: ProsodyScoringService
 
@@ -226,8 +222,6 @@ class ProsodyScoringServiceTests {
             "Overall score should be within range of sub-scores")
     }
 
-    // Helper methods to create test data
-
     private fun createMockFeatures(): ProsodyFeatures {
         return ProsodyFeatures(
             duration = 3.0,
@@ -285,29 +279,77 @@ class ProsodyScoringServiceTests {
     }
 
     private fun createExcellentProsodyFeatures(): ProsodyFeatures {
+        // Target: Overall score > 0.85
+        // - Pacing: 8 words in 3.0s -> 160 WPM (optimal)
+        // - Rhythm: syllable timing CV ~0.35 (optimal)
+        // - Intonation: pitch range ~60-70 Hz, smooth contour
+        // - Fluency: no pauses
+        // - Stress: high energy contrast so ~50-75% words get stressed
+        val duration = 3.0
+        val points = (duration * 100).toInt()
+
+        // Smooth, varied pitch with ~60 Hz range (optimal 30..80)
+        val variedPitchContour = (0 until points).map { i ->
+            val time = i * 0.01
+            val pitch = 160.0 + 25.0 * kotlin.math.sin(i * 0.10) + 5.0 * kotlin.math.cos(i * 0.04)
+            PitchPoint(time, pitch, true)
+        }
+
+        // Design word timings to achieve syllable-duration CV around 0.3-0.35
+        val wordSpecs = listOf(
+            Triple(2, 0.24, true),
+            Triple(2, 0.24, false),
+            Triple(2, 0.30, true),
+            Triple(2, 0.36, true),
+            Triple(2, 0.44, true),
+            Triple(2, 0.50, false),
+            Triple(2, 0.60, true),
+            Triple(2, 0.32, true)
+        )
+
+        var t = 0.0
+        val naturalWordTimings = wordSpecs.mapIndexed { idx, (syll, dur, stressed) ->
+            val end = (t + dur).coerceAtMost(duration)
+            val wt = WordTiming("word$idx", t, end, syll, stressed)
+            t += dur
+            wt
+        }
+
+        // Energy: set mean around ~0.59 so threshold mean*1.3 ~0.77; stressed peaks ~0.90 > threshold; unstressed max ~0.40 < threshold
+        val energyContour = (0 until points).map { i ->
+            val time = i * 0.01
+            val wordIdx = naturalWordTimings.indexOfFirst { time >= it.startSec && time <= it.endSec }
+            val stressed = if (wordIdx >= 0) naturalWordTimings[wordIdx].stressed else false
+            val energy = if (stressed) {
+                0.65 + 0.25 * kotlin.math.sin(time * 6.0) // 0.40 .. 0.90
+            } else {
+                0.35 + 0.05 * kotlin.math.sin(time * 6.0) // 0.30 .. 0.40
+            }
+            EnergyPoint(time, energy)
+        }
+
         return ProsodyFeatures(
-            duration = 3.0,
-            pitchContour = createMockPitchContour(300), // Good variation
-            energyContour = createMockEnergyContour(300),
-            wordTimings = createMockWordTimings(8, 3.0), // Good pacing: 160 WPM
-            pauseRegions = listOf(PauseRegion(1.5, 1.65, false)) // Few pauses
+            duration = duration,
+            pitchContour = variedPitchContour,
+            energyContour = energyContour,
+            wordTimings = naturalWordTimings,
+            pauseRegions = emptyList()
         )
     }
 
     private fun createPoorProsodyFeatures(): ProsodyFeatures {
-        // Flat pitch, many pauses, irregular rhythm
-        val flatPitch = (0..200).map { PitchPoint(it * 0.01, 150.0, true) }
-        val manyPauses = (1..15).map { i ->
-            PauseRegion(i * 0.3, i * 0.3 + 0.5, i % 3 == 0)
+        // Flat pitch (monotone), many pauses, irregular rhythm, extreme pacing
+        val flatPitch = (0..500).map { PitchPoint(it * 0.01, 150.0, true) }
+        val manyPauses = (1..20).map { i ->
+            PauseRegion(i * 0.35, i * 0.35 + 0.6, i % 2 == 0) // More filled pauses
         }
 
         return ProsodyFeatures(
-            duration = 5.0,
+            duration = 10.0, // Very long duration
             pitchContour = flatPitch,
-            energyContour = createMockEnergyContour(500),
-            wordTimings = createMockWordTimings(15, 5.0), // Too slow
+            energyContour = createMockEnergyContour(700),
+            wordTimings = createMockWordTimings(12, 10.0), // too slow
             pauseRegions = manyPauses
         )
     }
 }
-

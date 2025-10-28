@@ -14,7 +14,7 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 
-class ProsodyFeatureExtractionServiceTests {
+class ProsodyFeatureExtractionServiceTest {
 
     private lateinit var featureExtractionService: ProsodyFeatureExtractionService
     private lateinit var mockSphinxService: SphinxService

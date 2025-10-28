@@ -227,18 +227,22 @@ class ProsodyFeatureExtractionService(
     ): List<PauseRegion> {
         val pauses = mutableListOf<PauseRegion>()
 
-        // Detect pauses between words
+        // Detect silent pauses between words (always unfilled)
         for (i in 0 until wordTimings.size - 1) {
             val currentWord = wordTimings[i]
             val nextWord = wordTimings[i + 1]
             val gap = nextWord.startSec - currentWord.endSec
 
             if (gap > PAUSE_THRESHOLD_SEC) {
-                val isFilled = nextWord.word.lowercase() in FILLED_PAUSE_WORDS
-                pauses.add(PauseRegion(currentWord.endSec, nextWord.startSec, isFilled))
+                pauses.add(PauseRegion(currentWord.endSec, nextWord.startSec, false))
             }
         }
 
+        for (wordTiming in wordTimings) {
+            if (wordTiming.word.lowercase() in FILLED_PAUSE_WORDS) {
+                pauses.add(PauseRegion(wordTiming.startSec, wordTiming.endSec, true))
+            }
+        }
         return pauses
     }
 }
