@@ -74,7 +74,6 @@ class TranscriptionService(
             if (dot != -1) name.substring(dot) else ""
         } ?: ""
         val temp = Files.createTempFile("upload_", suffix).toFile()
-        // Mark for deletion on JVM exit as a safety net
         temp.deleteOnExit()
         file.inputStream.use { input ->
             temp.outputStream().use { output ->
@@ -86,7 +85,6 @@ class TranscriptionService(
 
     private fun extractWavWithFfmpeg(inputFile: File): ByteArray {
         val outFile = Files.createTempFile("audio_", ".wav").toFile()
-        // Mark for deletion on JVM exit as a safety net
         outFile.deleteOnExit()
         try {
             val cmd = arrayOf(
@@ -108,7 +106,6 @@ class TranscriptionService(
             }
             return outFile.readBytes()
         } finally {
-            // Always clean up the output file
             outFile.delete()
         }
     }

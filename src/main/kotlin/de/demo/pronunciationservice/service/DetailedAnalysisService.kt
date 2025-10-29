@@ -188,26 +188,22 @@ class DetailedAnalysisService(
         val refSize = reference.size
         val hypSize = hypothesis.size
         
-        // Handle empty cases early
         if (refSize == 0 && hypSize == 0) return emptyList()
         if (refSize == 0) return hypothesis.indices.map { Step(ErrorType.INSERTION, null, it) }
         if (hypSize == 0) return reference.indices.map { Step(ErrorType.DELETION, it, null) }
         
         val dp = Array(refSize + 1) { IntArray(hypSize + 1) }
-        // Store traceback information: 0=match/sub, 1=del, 2=ins
         val trace = Array(refSize + 1) { IntArray(hypSize + 1) }
 
-        // Initialize borders
         for (i in 1..refSize) {
             dp[i][0] = i
-            trace[i][0] = 1 // deletion
+            trace[i][0] = 1
         }
         for (j in 1..hypSize) {
             dp[0][j] = j
-            trace[0][j] = 2 // insertion
+            trace[0][j] = 2
         }
 
-        // Fill DP table with traceback
         for (i in 1..refSize) {
             for (j in 1..hypSize) {
                 val matchCost = if (reference[i - 1] == hypothesis[j - 1]) 0 else 1
@@ -215,7 +211,6 @@ class DetailedAnalysisService(
                 val del = dp[i - 1][j] + 1
                 val ins = dp[i][j - 1] + 1
                 
-                // Explicit tie-breaking: prefer match/sub > del > ins for consistency
                 when {
                     diag <= del && diag <= ins -> {
                         dp[i][j] = diag
@@ -233,22 +228,21 @@ class DetailedAnalysisService(
             }
         }
 
-        // Backtrace using stored trace
         val steps = mutableListOf<Step>()
         var i = refSize
         var j = hypSize
         while (i > 0 || j > 0) {
             when (trace[i][j]) {
-                0 -> { // match/substitution
+                0 -> {
                     val type = if (reference[i - 1] == hypothesis[j - 1]) ErrorType.MATCH else ErrorType.SUBSTITUTION
                     steps.add(Step(type, i - 1, j - 1))
                     i--; j--
                 }
-                1 -> { // deletion
+                1 -> {
                     steps.add(Step(ErrorType.DELETION, i - 1, null))
                     i--
                 }
-                else -> { // insertion
+                else -> {
                     steps.add(Step(ErrorType.INSERTION, null, j - 1))
                     j--
                 }

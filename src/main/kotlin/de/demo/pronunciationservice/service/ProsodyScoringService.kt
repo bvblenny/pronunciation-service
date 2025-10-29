@@ -116,7 +116,6 @@ class ProsodyScoringService {
             return Pair(0.5, RhythmMetrics(0.0, 0.0, 0.5, "Insufficient data for rhythm analysis"))
         }
 
-        // Calculate mean and variance in a single pass for efficiency
         var sum = 0.0
         var sumSquares = 0.0
         for (duration in syllableDurations) {
@@ -125,18 +124,14 @@ class ProsodyScoringService {
         }
         val count = syllableDurations.size
         val mean = sum / count
-        // Use max to handle potential floating-point precision errors
         val variance = maxOf(0.0, (sumSquares / count) - (mean * mean))
         val stdDev = sqrt(variance)
         val cv = if (mean > 0) stdDev / mean else 0.0
 
-        // Expected variance for natural speech (calibrated value)
         val expectedCv = 0.35
 
-        // Isochrony index (lower = more regular, 0.5-0.7 is natural)
         val isochronyIndex = cv
 
-        // Score: penalize both too regular (robotic) and too irregular
         val score = when {
             cv < 0.2 -> 0.6 // Too regular (robotic)
             cv in 0.2..0.5 -> 1.0 - abs(cv - expectedCv) / expectedCv
@@ -172,7 +167,6 @@ class ProsodyScoringService {
             return Pair(0.0, IntonationMetrics(0.0, 0.0, 0.0, 0.0, "No voiced speech detected"))
         }
 
-        // Calculate all statistics in a single pass
         var sum = 0.0
         var sumSquares = 0.0
         var minPitch = Double.MAX_VALUE
@@ -188,18 +182,15 @@ class ProsodyScoringService {
         
         val count = voicedPitches.size
         val meanPitch = sum / count
-        // Use max to handle potential floating-point precision errors
         val variance = maxOf(0.0, (sumSquares / count) - (meanPitch * meanPitch))
         val stdDev = sqrt(variance)
         val cv = if (meanPitch > 0) stdDev / meanPitch else 0.0
         val pitchRange = maxPitch - minPitch
 
-        // Calculate contour smoothness (less jagged = more natural)
         val smoothness = calculateContourSmoothness(voicedPitches)
 
-        // Score based on pitch range and variation
         val rangeScore = when {
-            pitchRange < 20.0 -> 0.3 // Monotone
+            pitchRange < 20.0 -> 0.3
             pitchRange in 20.0..30.0 -> 0.6
             pitchRange in 30.0..80.0 -> 1.0
             pitchRange in 80.0..120.0 -> 0.9

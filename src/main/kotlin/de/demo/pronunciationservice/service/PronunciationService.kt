@@ -17,7 +17,6 @@ class PronunciationService {
 
     private val logger = Logger.getLogger(PronunciationService::class.java.name)
     
-    // Reuse SpeechClient instance instead of creating a new one per request
     private val speechClient: SpeechClient by lazy { SpeechClient.create() }
 
     /**
@@ -57,14 +56,11 @@ class PronunciationService {
         val alternative = result.getAlternatives(0)
         val transcribedText = alternative.transcript.trim()
 
-        // Calculate score based on text similarity and word confidence
         val similarityScore = calculateTextSimilarity(transcribedText, referenceText)
         val confidenceScore = calculateConfidenceScore(alternative)
 
-        // Combine scores (giving more weight to similarity)
         val finalScore = (similarityScore * 0.7) + (confidenceScore * 0.3)
 
-        // Extract word-level details
         val wordDetails = extractWordDetails(alternative, referenceText)
 
         return PronunciationScoreDto(
@@ -89,11 +85,9 @@ class PronunciationService {
         val m = s1.length
         val n = s2.length
         
-        // Handle edge cases
         if (m == 0) return n
         if (n == 0) return m
 
-        // Use space-optimized algorithm: only keep two rows instead of full matrix
         var prevRow = IntArray(n + 1) { it }
         var currRow = IntArray(n + 1)
 
@@ -106,7 +100,6 @@ class PronunciationService {
                     prevRow[j - 1] + cost
                 )
             }
-            // Swap rows
             val temp = prevRow
             prevRow = currRow
             currRow = temp

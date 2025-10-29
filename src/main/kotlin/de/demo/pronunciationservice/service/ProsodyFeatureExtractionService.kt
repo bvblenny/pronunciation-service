@@ -125,7 +125,6 @@ class ProsodyFeatureExtractionService(
      * Optimized to skip frames with very low energy to reduce computation
      */
     private fun estimatePitch(frame: DoubleArray, sampleRate: Int): Pair<Double, Boolean> {
-        // Early energy check to skip silent frames
         val energy = frame.sumOf { it * it }
         if (energy < 0.01) {
             return Pair(0.0, false)
@@ -134,11 +133,9 @@ class ProsodyFeatureExtractionService(
         val minLag = (sampleRate / PITCH_MAX_HZ).toInt()
         val maxLag = (sampleRate / PITCH_MIN_HZ).toInt()
 
-        // Calculate autocorrelation with optimizations
         var maxCorrelation = 0.0
         var bestLag = minLag
 
-        // Pre-compute frame values to avoid repeated array access
         val frameSize = frame.size
         val effectiveMaxLag = min(maxLag, frameSize - 1)
 
@@ -146,7 +143,6 @@ class ProsodyFeatureExtractionService(
             var correlation = 0.0
             val loopEnd = frameSize - lag
             
-            // Unrolled loop for better performance
             var i = 0
             while (i + 4 <= loopEnd) {
                 correlation += frame[i] * frame[i + lag] +
@@ -156,7 +152,6 @@ class ProsodyFeatureExtractionService(
                 i += 4
             }
             
-            // Handle remaining elements
             while (i < loopEnd) {
                 correlation += frame[i] * frame[i + lag]
                 i++
@@ -190,7 +185,6 @@ class ProsodyFeatureExtractionService(
         while (frameStart + frameSize < samples.size) {
             val timeSec = frameStart.toDouble() / sampleRate
 
-            // Calculate RMS energy efficiently
             var sumSquares = 0.0
             for (i in frameStart until frameStart + frameSize) {
                 val sample = samples[i]
