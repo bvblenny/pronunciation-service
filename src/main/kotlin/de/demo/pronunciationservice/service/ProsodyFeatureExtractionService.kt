@@ -122,19 +122,39 @@ class ProsodyFeatureExtractionService(
 
     /**
      * Estimate pitch for a single frame using autocorrelation
+     * Optimized to skip frames with very low energy to reduce computation
      */
     private fun estimatePitch(frame: DoubleArray, sampleRate: Int): Pair<Double, Boolean> {
+        val energy = frame.sumOf { it * it }
+        if (energy < 0.01) {
+            return Pair(0.0, false)
+        }
+        
         val minLag = (sampleRate / PITCH_MAX_HZ).toInt()
         val maxLag = (sampleRate / PITCH_MIN_HZ).toInt()
 
-        // Calculate autocorrelation
         var maxCorrelation = 0.0
         var bestLag = minLag
 
-        for (lag in minLag..min(maxLag, frame.size - 1)) {
+        val frameSize = frame.size
+        val effectiveMaxLag = min(maxLag, frameSize - 1)
+
+        for (lag in minLag..effectiveMaxLag) {
             var correlation = 0.0
-            for (i in 0 until frame.size - lag) {
+            val loopEnd = frameSize - lag
+            
+            var i = 0
+            while (i + 4 <= loopEnd) {
+                correlation += frame[i] * frame[i + lag] +
+                              frame[i + 1] * frame[i + 1 + lag] +
+                              frame[i + 2] * frame[i + 2 + lag] +
+                              frame[i + 3] * frame[i + 3 + lag]
+                i += 4
+            }
+            
+            while (i < loopEnd) {
                 correlation += frame[i] * frame[i + lag]
+                i++
             }
 
             if (correlation > maxCorrelation) {
@@ -143,10 +163,7 @@ class ProsodyFeatureExtractionService(
             }
         }
 
-        // Calculate energy to determine if voiced
-        val energy = frame.map { it * it }.sum()
-        val voiced = energy > 0.01 && maxCorrelation > 0.3 * energy
-
+        val voiced = maxCorrelation > 0.3 * energy
         val pitch = if (voiced) sampleRate.toDouble() / bestLag else 0.0
 
         return Pair(pitch, voiced)
@@ -154,6 +171,7 @@ class ProsodyFeatureExtractionService(
 
     /**
      * Extract energy contour (RMS energy per frame)
+     * Optimized using sumOf instead of map + average
      */
     private fun extractEnergyContour(
         samples: DoubleArray,
@@ -165,11 +183,14 @@ class ProsodyFeatureExtractionService(
 
         var frameStart = 0
         while (frameStart + frameSize < samples.size) {
-            val frame = samples.sliceArray(frameStart until frameStart + frameSize)
             val timeSec = frameStart.toDouble() / sampleRate
 
-            // Calculate RMS energy
-            val energy = sqrt(frame.map { it * it }.average())
+            var sumSquares = 0.0
+            for (i in frameStart until frameStart + frameSize) {
+                val sample = samples[i]
+                sumSquares += sample * sample
+            }
+            val energy = sqrt(sumSquares / frameSize)
             energyPoints.add(EnergyPoint(timeSec, energy))
 
             frameStart += hopSize
