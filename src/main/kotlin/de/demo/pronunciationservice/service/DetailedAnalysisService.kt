@@ -178,6 +178,7 @@ class DetailedAnalysisService(
     /**
      * Aligns two sequences of tokens (reference and hypothesis) using dynamic programming
      * to compute the minimal edit distance. Returns a list of alignment steps.
+     * Optimized to store traceback during forward pass to avoid recomputation.
      *
      * @param reference The list of reference tokens.
      * @param hypothesis The list of hypothesis tokens.
@@ -186,40 +187,67 @@ class DetailedAnalysisService(
     private fun align(reference: List<String>, hypothesis: List<String>): List<Step> {
         val refSize = reference.size
         val hypSize = hypothesis.size
+        
+        // Handle empty cases early
+        if (refSize == 0 && hypSize == 0) return emptyList()
+        if (refSize == 0) return hypothesis.indices.map { Step(ErrorType.INSERTION, null, it) }
+        if (hypSize == 0) return reference.indices.map { Step(ErrorType.DELETION, it, null) }
+        
         val dp = Array(refSize + 1) { IntArray(hypSize + 1) }
+        // Store traceback information: 0=match/sub, 1=del, 2=ins
+        val trace = Array(refSize + 1) { IntArray(hypSize + 1) }
 
         // Initialize borders
-        for (i in dp.indices) dp[i][0] = i
-        for (j in dp[0].indices) dp[0][j] = j
+        for (i in 1..refSize) {
+            dp[i][0] = i
+            trace[i][0] = 1 // deletion
+        }
+        for (j in 1..hypSize) {
+            dp[0][j] = j
+            trace[0][j] = 2 // insertion
+        }
 
-        // Fill DP table
+        // Fill DP table with traceback
         for (i in 1..refSize) {
             for (j in 1..hypSize) {
                 val matchCost = if (reference[i - 1] == hypothesis[j - 1]) 0 else 1
-                dp[i][j] = minOf(
-                    dp[i - 1][j - 1] + matchCost, // Substitution/Match
-                    dp[i - 1][j] + 1,             // Deletion
-                    dp[i][j - 1] + 1              // Insertion
-                )
+                val diag = dp[i - 1][j - 1] + matchCost
+                val del = dp[i - 1][j] + 1
+                val ins = dp[i][j - 1] + 1
+                
+                when (minOf(diag, del, ins)) {
+                    diag -> {
+                        dp[i][j] = diag
+                        trace[i][j] = 0
+                    }
+                    del -> {
+                        dp[i][j] = del
+                        trace[i][j] = 1
+                    }
+                    else -> {
+                        dp[i][j] = ins
+                        trace[i][j] = 2
+                    }
+                }
             }
         }
 
-        // Backtrace to build steps
+        // Backtrace using stored trace
         val steps = mutableListOf<Step>()
         var i = refSize
         var j = hypSize
         while (i > 0 || j > 0) {
-            when {
-                i > 0 && j > 0 && dp[i][j] == dp[i - 1][j - 1] + if (reference[i - 1] == hypothesis[j - 1]) 0 else 1 -> {
+            when (trace[i][j]) {
+                0 -> { // match/substitution
                     val type = if (reference[i - 1] == hypothesis[j - 1]) ErrorType.MATCH else ErrorType.SUBSTITUTION
                     steps.add(Step(type, i - 1, j - 1))
                     i--; j--
                 }
-                i > 0 && dp[i][j] == dp[i - 1][j] + 1 -> {
+                1 -> { // deletion
                     steps.add(Step(ErrorType.DELETION, i - 1, null))
                     i--
                 }
-                else -> {
+                else -> { // insertion
                     steps.add(Step(ErrorType.INSERTION, null, j - 1))
                     j--
                 }

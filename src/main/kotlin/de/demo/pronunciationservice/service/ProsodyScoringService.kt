@@ -97,6 +97,7 @@ class ProsodyScoringService {
     /**
      * Score rhythm based on syllable timing regularity.
      * Future: Replace with learned model from native speaker corpus.
+     * Optimized to calculate mean and variance in a single pass.
      */
     private fun scoreRhythm(features: ProsodyFeatures): Pair<Double, RhythmMetrics> {
         val wordTimings = features.wordTimings
@@ -115,9 +116,16 @@ class ProsodyScoringService {
             return Pair(0.5, RhythmMetrics(0.0, 0.0, 0.5, "Insufficient data for rhythm analysis"))
         }
 
-        // Calculate variance in syllable timing
-        val mean = syllableDurations.average()
-        val variance = syllableDurations.map { (it - mean).pow(2) }.average()
+        // Calculate mean and variance in a single pass for efficiency
+        var sum = 0.0
+        var sumSquares = 0.0
+        for (duration in syllableDurations) {
+            sum += duration
+            sumSquares += duration * duration
+        }
+        val count = syllableDurations.size
+        val mean = sum / count
+        val variance = (sumSquares / count) - (mean * mean)
         val stdDev = sqrt(variance)
         val cv = if (mean > 0) stdDev / mean else 0.0
 
@@ -154,6 +162,7 @@ class ProsodyScoringService {
     /**
      * Score intonation based on pitch variation and contour.
      * Future: Replace with prosodic pattern matching against target language.
+     * Optimized to calculate statistics in a single pass.
      */
     private fun scoreIntonation(features: ProsodyFeatures): Pair<Double, IntonationMetrics> {
         val voicedPitches = features.pitchContour.filter { it.voiced && it.frequencyHz > 0 }
@@ -162,15 +171,26 @@ class ProsodyScoringService {
             return Pair(0.0, IntonationMetrics(0.0, 0.0, 0.0, 0.0, "No voiced speech detected"))
         }
 
-        val pitchValues = voicedPitches.map { it.frequencyHz }
-        val meanPitch = pitchValues.average()
-        val minPitch = pitchValues.minOrNull() ?: 0.0
-        val maxPitch = pitchValues.maxOrNull() ?: 0.0
-        val pitchRange = maxPitch - minPitch
-
-        // Calculate pitch variation coefficient
-        val stdDev = sqrt(pitchValues.map { (it - meanPitch).pow(2) }.average())
+        // Calculate all statistics in a single pass
+        var sum = 0.0
+        var sumSquares = 0.0
+        var minPitch = Double.MAX_VALUE
+        var maxPitch = Double.MIN_VALUE
+        
+        for (pitch in voicedPitches) {
+            val freq = pitch.frequencyHz
+            sum += freq
+            sumSquares += freq * freq
+            if (freq < minPitch) minPitch = freq
+            if (freq > maxPitch) maxPitch = freq
+        }
+        
+        val count = voicedPitches.size
+        val meanPitch = sum / count
+        val variance = (sumSquares / count) - (meanPitch * meanPitch)
+        val stdDev = sqrt(variance)
         val cv = if (meanPitch > 0) stdDev / meanPitch else 0.0
+        val pitchRange = maxPitch - minPitch
 
         // Calculate contour smoothness (less jagged = more natural)
         val smoothness = calculateContourSmoothness(voicedPitches)
