@@ -215,12 +215,13 @@ class DetailedAnalysisService(
                 val del = dp[i - 1][j] + 1
                 val ins = dp[i][j - 1] + 1
                 
-                when (minOf(diag, del, ins)) {
-                    diag -> {
+                // Explicit tie-breaking: prefer match/sub > del > ins for consistency
+                when {
+                    diag <= del && diag <= ins -> {
                         dp[i][j] = diag
                         trace[i][j] = 0
                     }
-                    del -> {
+                    del <= ins -> {
                         dp[i][j] = del
                         trace[i][j] = 1
                     }

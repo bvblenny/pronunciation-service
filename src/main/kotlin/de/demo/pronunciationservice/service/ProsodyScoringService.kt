@@ -125,7 +125,8 @@ class ProsodyScoringService {
         }
         val count = syllableDurations.size
         val mean = sum / count
-        val variance = (sumSquares / count) - (mean * mean)
+        // Use max to handle potential floating-point precision errors
+        val variance = maxOf(0.0, (sumSquares / count) - (mean * mean))
         val stdDev = sqrt(variance)
         val cv = if (mean > 0) stdDev / mean else 0.0
 
@@ -187,7 +188,8 @@ class ProsodyScoringService {
         
         val count = voicedPitches.size
         val meanPitch = sum / count
-        val variance = (sumSquares / count) - (meanPitch * meanPitch)
+        // Use max to handle potential floating-point precision errors
+        val variance = maxOf(0.0, (sumSquares / count) - (meanPitch * meanPitch))
         val stdDev = sqrt(variance)
         val cv = if (meanPitch > 0) stdDev / meanPitch else 0.0
         val pitchRange = maxPitch - minPitch
