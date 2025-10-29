@@ -74,6 +74,8 @@ class TranscriptionService(
             if (dot != -1) name.substring(dot) else ""
         } ?: ""
         val temp = Files.createTempFile("upload_", suffix).toFile()
+        // Mark for deletion on JVM exit as a safety net
+        temp.deleteOnExit()
         file.inputStream.use { input ->
             temp.outputStream().use { output ->
                 input.copyTo(output)
@@ -84,27 +86,31 @@ class TranscriptionService(
 
     private fun extractWavWithFfmpeg(inputFile: File): ByteArray {
         val outFile = Files.createTempFile("audio_", ".wav").toFile()
-        val cmd = arrayOf(
-            ffmpegPath,
-            "-y",
-            "-i", inputFile.absolutePath,
-            "-ac", "1",
-            "-ar", "16000",
-            "-f", "wav",
-            outFile.absolutePath
-        )
-        val proc = ProcessBuilder(*cmd)
-            .redirectErrorStream(true)
-            .start()
-        proc.inputStream.bufferedReader().use { it.readText() }
-        val exit = proc.waitFor()
-        if (exit != 0 || !outFile.exists()) {
+        // Mark for deletion on JVM exit as a safety net
+        outFile.deleteOnExit()
+        try {
+            val cmd = arrayOf(
+                ffmpegPath,
+                "-y",
+                "-i", inputFile.absolutePath,
+                "-ac", "1",
+                "-ar", "16000",
+                "-f", "wav",
+                outFile.absolutePath
+            )
+            val proc = ProcessBuilder(*cmd)
+                .redirectErrorStream(true)
+                .start()
+            proc.inputStream.bufferedReader().use { it.readText() }
+            val exit = proc.waitFor()
+            if (exit != 0 || !outFile.exists()) {
+                throw IllegalStateException("Failed to convert media to WAV")
+            }
+            return outFile.readBytes()
+        } finally {
+            // Always clean up the output file
             outFile.delete()
-            throw IllegalStateException("Failed to convert media to WAV")
         }
-        val bytes = outFile.readBytes()
-        outFile.delete()
-        return bytes
     }
 
     private fun shouldExtractByExtension(name: String): Boolean {

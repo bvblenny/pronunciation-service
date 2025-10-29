@@ -16,6 +16,9 @@ import kotlin.math.min
 class PronunciationService {
 
     private val logger = Logger.getLogger(PronunciationService::class.java.name)
+    
+    // Reuse SpeechClient instance instead of creating a new one per request
+    private val speechClient: SpeechClient by lazy { SpeechClient.create() }
 
     /**
      * Analyzes audio and compares it to a reference text to provide a pronunciation score.
@@ -26,51 +29,49 @@ class PronunciationService {
      * @return A score between 0.0 and 1.0 representing how well the audio matches the reference text
      */
     fun evaluate(audioBytes: ByteArray, referenceText: String, languageCode: String): PronunciationScoreDto {
-        SpeechClient.create().use { speechClient ->
-            val audio = RecognitionAudio.newBuilder()
-                .setContent(ByteString.copyFrom(audioBytes))
-                .build()
+        val audio = RecognitionAudio.newBuilder()
+            .setContent(ByteString.copyFrom(audioBytes))
+            .build()
 
-            val config = RecognitionConfig.newBuilder()
-                .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
-                .setLanguageCode(languageCode)
-                .setSampleRateHertz(16000)
-                .setEnableWordConfidence(true)
-                .setEnableAutomaticPunctuation(false)
-                .build()
+        val config = RecognitionConfig.newBuilder()
+            .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
+            .setLanguageCode(languageCode)
+            .setSampleRateHertz(16000)
+            .setEnableWordConfidence(true)
+            .setEnableAutomaticPunctuation(false)
+            .build()
 
-            val response = speechClient.recognize(config, audio)
+        val response = speechClient.recognize(config, audio)
 
-            if (response.resultsCount == 0) {
-                logger.warning("No speech recognition results returned")
-                return PronunciationScoreDto(0.0, "No speech detected", emptyList())
-            }
-
-            val result = response.getResults(0)
-            if (result.alternativesCount == 0) {
-                logger.warning("No alternatives in speech recognition results")
-                return PronunciationScoreDto(0.0, "No transcription alternatives", emptyList())
-            }
-
-            val alternative = result.getAlternatives(0)
-            val transcribedText = alternative.transcript.trim()
-
-            // Calculate score based on text similarity and word confidence
-            val similarityScore = calculateTextSimilarity(transcribedText, referenceText)
-            val confidenceScore = calculateConfidenceScore(alternative)
-
-            // Combine scores (giving more weight to similarity)
-            val finalScore = (similarityScore * 0.7) + (confidenceScore * 0.3)
-
-            // Extract word-level details
-            val wordDetails = extractWordDetails(alternative, referenceText)
-
-            return PronunciationScoreDto(
-                finalScore,
-                transcribedText,
-                wordDetails
-            )
+        if (response.resultsCount == 0) {
+            logger.warning("No speech recognition results returned")
+            return PronunciationScoreDto(0.0, "No speech detected", emptyList())
         }
+
+        val result = response.getResults(0)
+        if (result.alternativesCount == 0) {
+            logger.warning("No alternatives in speech recognition results")
+            return PronunciationScoreDto(0.0, "No transcription alternatives", emptyList())
+        }
+
+        val alternative = result.getAlternatives(0)
+        val transcribedText = alternative.transcript.trim()
+
+        // Calculate score based on text similarity and word confidence
+        val similarityScore = calculateTextSimilarity(transcribedText, referenceText)
+        val confidenceScore = calculateConfidenceScore(alternative)
+
+        // Combine scores (giving more weight to similarity)
+        val finalScore = (similarityScore * 0.7) + (confidenceScore * 0.3)
+
+        // Extract word-level details
+        val wordDetails = extractWordDetails(alternative, referenceText)
+
+        return PronunciationScoreDto(
+            finalScore,
+            transcribedText,
+            wordDetails
+        )
     }
 
 
@@ -87,26 +88,31 @@ class PronunciationService {
     private fun levenshteinDistance(s1: String, s2: String): Int {
         val m = s1.length
         val n = s2.length
+        
+        // Handle edge cases
+        if (m == 0) return n
+        if (n == 0) return m
 
-        // Create a matrix of size (m+1) x (n+1)
-        val dp = Array(m + 1) { IntArray(n + 1) }
+        // Use space-optimized algorithm: only keep two rows instead of full matrix
+        var prevRow = IntArray(n + 1) { it }
+        var currRow = IntArray(n + 1)
 
-        // Initialize the first row and column
-        for (i in 0..m) dp[i][0] = i
-        for (j in 0..n) dp[0][j] = j
-
-        // Fill the matrix
         for (i in 1..m) {
+            currRow[0] = i
             for (j in 1..n) {
                 val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
-                dp[i][j] = min(
-                    min(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
-                    dp[i - 1][j - 1] + cost
+                currRow[j] = min(
+                    min(prevRow[j] + 1, currRow[j - 1] + 1),
+                    prevRow[j - 1] + cost
                 )
             }
+            // Swap rows
+            val temp = prevRow
+            prevRow = currRow
+            currRow = temp
         }
 
-        return dp[m][n]
+        return prevRow[n]
     }
 
     private fun calculateConfidenceScore(alternative: SpeechRecognitionAlternative): Double {
