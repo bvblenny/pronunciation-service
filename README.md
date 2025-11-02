@@ -40,17 +40,24 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 - POST /api/transcription/transcribe  
   Raw transcription with segments → { transcript, segments[] }  
   Params: file, languageCode (default: en-US), provider (default: sphinx)  
-  Supports providers: "sphinx" (offline, default) or "vosk" (offline, more accurate)
+  Supports providers: "sphinx" (offline, default), "vosk" (offline, more accurate), or "google" (cloud, highest accuracy)
 
 - POST /api/transcription/transcribe-with-subtitles  
   Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }  
   Params: file, languageCode (default: en-US), provider (default: sphinx)  
-  Example with Vosk:
+  Examples:
   ```bash
+  # Offline with Vosk (more accurate)
   curl -X POST http://localhost:8080/api/transcription/transcribe-with-subtitles \
     -F "file=@audio.mp3" \
     -F "languageCode=en-US" \
     -F "provider=vosk"
+  
+  # Cloud with Google (highest accuracy)
+  curl -X POST http://localhost:8080/api/transcription/transcribe-with-subtitles \
+    -F "file=@audio.mp3" \
+    -F "languageCode=en-US" \
+    -F "provider=google"
   ```
 
 - POST /api/prosody/evaluate
@@ -82,7 +89,9 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 - media.ffmpeg.path
 - sphinx.acoustic-model / sphinx.dictionary / sphinx.language-model
 - **vosk.model-path** - Path to Vosk model directory (download from https://alphacephei.com/vosk/models)
-- **transcription.default-provider** - Default ASR provider: "sphinx" or "vosk" (default: sphinx)
+- **google.speech.language-code** - Default language for Google Cloud Speech (default: en-US)
+- **google.speech.enable-word-time-offsets** - Enable word timing (default: true)
+- **transcription.default-provider** - Default ASR provider: "sphinx", "vosk", or "google" (default: sphinx)
 - GOOGLE_APPLICATION_CREDENTIALS or spring.cloud.gcp.credentials.location
 - spring.servlet.multipart.max-file-size / max-request-size
 - app.cors.* (CORS domains, methods, headers)
@@ -105,24 +114,43 @@ export TRANSCRIPTION_PROVIDER=vosk
 - Full English (1.8 GB): `vosk-model-en-us-0.22` - Best accuracy
 - Multilingual: Various models available for 20+ languages
 
+### Setting up Google Cloud Speech-to-Text
+
+1. Create a Google Cloud project and enable the Speech-to-Text API
+2. Create a service account and download the JSON key file
+3. Set the credentials path:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+```
+
+Or configure in application.properties:
+```properties
+spring.cloud.gcp.credentials.location=file:/path/to/service-account-key.json
+```
+
+4. Optionally set as default provider: `transcription.default-provider=google`
+
 **Provider Comparison:**
 
-| Feature | Sphinx | Vosk |
-|---------|--------|------|
-| Accuracy | Moderate | High |
-| Speed | Fast | Fast |
-| Model Size | ~100 MB | 40 MB - 2 GB |
-| Setup | Pre-bundled | Model download required |
-| Cost | Free | Free |
-| Languages | English (bundled) | 20+ languages |
-| Word Timestamps | ✓ | ✓ |
-| Confidence Scores | ✓ | ✓ |
+| Feature | Sphinx | Vosk | Google Cloud |
+|---------|--------|------|--------------|
+| Accuracy | Moderate | High | Highest |
+| Speed | Fast | Fast | Fast (network dependent) |
+| Model Size | ~100 MB | 40 MB - 2 GB | Cloud-based (no local storage) |
+| Setup | Pre-bundled | Model download | API credentials required |
+| Cost | Free | Free | Pay per usage (~$0.006/15s) |
+| Languages | English (bundled) | 20+ languages | 125+ languages |
+| Word Timestamps | ✓ | ✓ | ✓ |
+| Confidence Scores | ✓ | ✓ | ✓ |
+| Internet Required | ✗ | ✗ | ✓ |
 
 ## Architecture
 
-- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, VoskService, SubtitleService).
+- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, VoskService, GoogleCloudSpeechService, SubtitleService).
 - Strategy abstraction for transcription providers keeps evaluation logic agnostic.
 - Provider selection via configuration or API parameter enables flexible ASR engine usage.
+- Three provider options: Sphinx (offline, fast), Vosk (offline, accurate), Google Cloud (cloud, highest accuracy).
 - Temporary WAV handling ensures consistent input for engines.
 - DTO layer isolates internal scoring model from API payloads for future versioning.
 - SubtitleService generates SRT-formatted subtitles from transcription segments with timing information.
@@ -138,7 +166,9 @@ export TRANSCRIPTION_PROVIDER=vosk
 ## Roadmap Ideas
 
 - ✅ Vosk provider (completed)
+- ✅ Google Cloud Speech provider (completed)
 - Whisper provider
+- Azure Speech Services provider
 - Persistence & analytics dashboard (e.g., Postgres + aggregated learning KPIs)
 - JWT auth + rate limiting
 - Phoneme/prosody scoring & CEFR heuristic tagging

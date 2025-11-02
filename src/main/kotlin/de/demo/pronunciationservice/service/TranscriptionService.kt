@@ -14,6 +14,7 @@ import java.util.*
 class TranscriptionService(
     private val sphinxService: SphinxService,
     private val voskService: VoskService,
+    private val googleCloudSpeechService: GoogleCloudSpeechService,
     @Value("\${media.ffmpeg.path:ffmpeg}") private val ffmpegPath: String,
     @Value("\${transcription.default-provider:sphinx}") private val defaultProvider: String
 ) {
@@ -38,7 +39,7 @@ class TranscriptionService(
     /**
      * Transcribes audio using the specified provider.
      * 
-     * @param provider The ASR provider to use ("sphinx" or "vosk")
+     * @param provider The ASR provider to use ("sphinx", "vosk", or "google")
      */
     fun transcribe(file: MultipartFile, languageCode: String = "en-US", provider: String): TranscriptionResponseDto {
         if (file.isEmpty) throw IllegalArgumentException("File is required")
@@ -52,8 +53,14 @@ class TranscriptionService(
                 }
                 voskService.recognize(wavBytes)
             }
+            "google", "google-cloud", "gcp" -> {
+                if (!googleCloudSpeechService.isAvailable()) {
+                    throw IllegalStateException("Google Cloud Speech provider is not available. Please configure Google Cloud credentials.")
+                }
+                googleCloudSpeechService.recognize(wavBytes, languageCode)
+            }
             "sphinx" -> sphinxService.recognize(wavBytes)
-            else -> throw IllegalArgumentException("Unknown transcription provider: $provider. Use 'sphinx' or 'vosk'.")
+            else -> throw IllegalArgumentException("Unknown transcription provider: $provider. Use 'sphinx', 'vosk', or 'google'.")
         }
 
         val segments = recognized.words.map {
