@@ -29,6 +29,16 @@ class VoskService(
     private val objectMapper = ObjectMapper()
     private val logger = LoggerFactory.getLogger(VoskService::class.java)
 
+    companion object {
+        private const val WAV_HEADER_SIZE = 44
+        private const val BUFFER_SIZE = 4096
+        private const val WAV_HEADER_MIN_SIZE = 12
+        
+        // WAV file format markers
+        private val RIFF_MARKER = "RIFF".toByteArray()
+        private val WAVE_MARKER = "WAVE".toByteArray()
+    }
+
     @PostConstruct
     fun initialize() {
         // Only initialize if model path is configured
@@ -70,15 +80,15 @@ class VoskService(
         recognizer.setWords(true) // Enable word-level timestamps
         
         try {
-            // Skip WAV header (44 bytes) if present
-            val audioData = if (audioBytes.size > 44 && isWavHeader(audioBytes)) {
-                audioBytes.copyOfRange(44, audioBytes.size)
+            // Skip WAV header if present
+            val audioData = if (audioBytes.size > WAV_HEADER_SIZE && isWavHeader(audioBytes)) {
+                audioBytes.copyOfRange(WAV_HEADER_SIZE, audioBytes.size)
             } else {
                 audioBytes
             }
 
             val inputStream = ByteArrayInputStream(audioData)
-            val buffer = ByteArray(4096)
+            val buffer = ByteArray(BUFFER_SIZE)
             var bytesRead: Int
 
             while (inputStream.read(buffer).also { bytesRead = it } >= 0) {
@@ -125,17 +135,16 @@ class VoskService(
 
     /**
      * Check if byte array starts with WAV file header.
+     * Verifies "RIFF" at offset 0 and "WAVE" at offset 8.
      */
     private fun isWavHeader(bytes: ByteArray): Boolean {
-        if (bytes.size < 12) return false
-        // Check for "RIFF" and "WAVE" markers
-        return bytes[0] == 'R'.code.toByte() &&
-               bytes[1] == 'I'.code.toByte() &&
-               bytes[2] == 'F'.code.toByte() &&
-               bytes[3] == 'F'.code.toByte() &&
-               bytes[8] == 'W'.code.toByte() &&
-               bytes[9] == 'A'.code.toByte() &&
-               bytes[10] == 'V'.code.toByte() &&
-               bytes[11] == 'E'.code.toByte()
+        if (bytes.size < WAV_HEADER_MIN_SIZE) return false
+        
+        // Check for "RIFF" marker at the start
+        val hasRiffMarker = bytes.copyOfRange(0, 4).contentEquals(RIFF_MARKER)
+        // Check for "WAVE" marker at offset 8
+        val hasWaveMarker = bytes.copyOfRange(8, 12).contentEquals(WAVE_MARKER)
+        
+        return hasRiffMarker && hasWaveMarker
     }
 }

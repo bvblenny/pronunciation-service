@@ -12,19 +12,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
  */
 class VoskServiceTest {
 
-    companion object {
-        // WAV header constants for 16-bit mono 16kHz PCM
-        private const val RIFF_MARKER = 0x52.toByte() // 'R'
-        private const val WAV_FILE_SIZE_MINUS_8 = 0x24.toByte()
-        private const val WAVE_MARKER = 0x57.toByte() // 'W'
-        private const val FMT_CHUNK_SIZE = 0x10.toByte()
-        private const val PCM_FORMAT = 0x01.toByte()
-        private const val MONO_CHANNELS = 0x01.toByte()
-        private const val SAMPLE_RATE_16KHZ = 0x80.toByte()
-        private const val BITS_PER_SAMPLE_16 = 0x10.toByte()
-        private const val DATA_MARKER = 0x64.toByte() // 'd'
-    }
-
     @Test
     fun `isAvailable should return false when model not configured`() {
         val service = VoskService(modelPath = "", sampleRate = 16000f)

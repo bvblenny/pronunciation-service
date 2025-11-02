@@ -18,6 +18,10 @@ class TranscriptionService(
     @Value("\${transcription.default-provider:sphinx}") private val defaultProvider: String
 ) {
 
+    companion object {
+        private const val SECONDS_TO_MILLIS = 1000
+    }
+
     private val supportedVideoTypes = setOf(
         MediaType.valueOf("video/mp4"),
         MediaType.valueOf("video/quicktime"),
@@ -55,8 +59,8 @@ class TranscriptionService(
         val segments = recognized.words.map {
             TranscriptSegmentDto(
                 text = it.word,
-                startMs = (it.startTime * 1000).toLong(),
-                endMs = (it.endTime * 1000).toLong()
+                startMs = (it.startTime * SECONDS_TO_MILLIS).toLong(),
+                endMs = (it.endTime * SECONDS_TO_MILLIS).toLong()
             )
         }
         return TranscriptionResponseDto(
