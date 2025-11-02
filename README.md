@@ -1,15 +1,16 @@
 # Pronunciation Service
 
-Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback. Designed to showcase clean architecture, extensibility, and production readiness.
+Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text, Vosk, and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback. Designed to showcase clean architecture, extensibility, and production readiness.
 
 ## Highlights
 
-- Multiple transcription engines: cloud accuracy (Google) + offline fallback (Sphinx) behind a common provider interface.
+- Multiple transcription engines: cloud accuracy (Google), modern offline ASR (Vosk), and offline fallback (Sphinx) behind a common provider interface.
+- **Subtitle generation**: Automatic SRT subtitle generation from transcriptions with word-level timing for any provider.
 - Forced alignment & scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
 - **Prosody (suprasegmental) scoring**: Explainable, extensible scoring for rhythm, intonation, stress, pacing, and fluency with diagnostic metrics and learner feedback.
 - Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg for consistent STT quality.
 - Clean layering: Controller → Media/Transcription → Alignment & Scoring → DTOs (OpenAPI documented).
-- Extensible: drop in new STT (e.g., Whisper, Vosk, Azure) with minimal touch points.
+- Extensible: drop in new STT (e.g., Whisper, Azure) with minimal touch points.
 - Production touches: health endpoint, OpenAPI/Swagger UI, environment/property configuration, CORS & upload limits.
 
 ## Quick Start
@@ -70,28 +71,46 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 - media.ffmpeg.path
 - sphinx.acoustic-model / sphinx.dictionary / sphinx.language-model
+- **vosk.model-path** - Path to Vosk model directory (download from https://alphacephei.com/vosk/models)
+- **transcription.default-provider** - Default ASR provider: "sphinx" or "vosk" (default: sphinx)
 - GOOGLE_APPLICATION_CREDENTIALS or spring.cloud.gcp.credentials.location
 - spring.servlet.multipart.max-file-size / max-request-size
 - app.cors.* (CORS domains, methods, headers)
 
+### Setting up Vosk
+
+1. Download a Vosk model from https://alphacephei.com/vosk/models (e.g., vosk-model-small-en-us-0.15)
+2. Extract the model to a directory
+3. Set the path in application.properties: `vosk.model-path=/path/to/vosk-model-small-en-us-0.15`
+4. Optionally set as default provider: `transcription.default-provider=vosk`
+
+Alternatively, use environment variables:
+```bash
+export VOSK_MODEL_PATH=/path/to/vosk-model-small-en-us-0.15
+export TRANSCRIPTION_PROVIDER=vosk
+```
+
 ## Architecture
 
-- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, SubtitleService).
+- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, VoskService, SubtitleService).
 - Strategy abstraction for transcription providers keeps evaluation logic agnostic.
+- Provider selection via configuration or API parameter enables flexible ASR engine usage.
 - Temporary WAV handling ensures consistent input for engines.
 - DTO layer isolates internal scoring model from API payloads for future versioning.
 - SubtitleService generates SRT-formatted subtitles from transcription segments with timing information.
 
 ## Extending a New STT Provider
 
-1. Implement a provider (e.g., WhisperTranscriptionProvider) with a transcribe(audioBytes) method returning a uniform internal transcript model.  
+1. Implement a provider service (e.g., WhisperService) with a recognize(audioBytes) method returning RecognizedSpeechDto.  
 2. Register it as a Spring bean.  
-3. Add selection logic (query param or config) or a new endpoint.  
-4. (Optional) Enhance scoring with engine-specific confidence or phoneme data.
+3. Add selection logic in TranscriptionService.transcribe() method.  
+4. (Optional) Add health indicator for the new provider.
+5. (Optional) Enhance scoring with engine-specific confidence or phoneme data.
 
 ## Roadmap Ideas
 
-- Whisper or Vosk provider
+- ✅ Vosk provider (completed)
+- Whisper provider
 - Persistence & analytics dashboard (e.g., Postgres + aggregated learning KPIs)
 - JWT auth + rate limiting
 - Phoneme/prosody scoring & CEFR heuristic tagging
@@ -99,7 +118,7 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 ## Tech Stack
 
-Kotlin, Spring Boot, Google Speech-to-Text, CMU Sphinx, ffmpeg, OpenAPI/Swagger, Gradle.
+Kotlin, Spring Boot, Google Speech-to-Text, Vosk, CMU Sphinx, ffmpeg, OpenAPI/Swagger, Gradle.
 
 ## License
 

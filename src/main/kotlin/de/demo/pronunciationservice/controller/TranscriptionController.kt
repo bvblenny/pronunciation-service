@@ -23,7 +23,8 @@ class TranscriptionController(
     )
     fun transcribe(
         @RequestParam("file") file: MultipartFile,
-        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String,
+        @RequestParam("provider", defaultValue = "sphinx") provider: String
     ): ResponseEntity<TranscriptionResponseDto> {
         val contentType = file.contentType
         val isAudio = contentType?.startsWith("audio/") == true
@@ -40,7 +41,7 @@ class TranscriptionController(
             return ResponseEntity.badRequest().build()
         }
 
-        val response = transcriptionService.transcribe(file, languageCode)
+        val response = transcriptionService.transcribe(file, languageCode, provider)
         return ResponseEntity.ok(response)
     }
 
@@ -63,7 +64,8 @@ class TranscriptionController(
     )
     fun transcribeWithSubtitles(
         @RequestParam("file") file: MultipartFile,
-        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String,
+        @RequestParam("provider", defaultValue = "sphinx") provider: String
     ): ResponseEntity<SubtitleResponseDto> {
         val contentType = file.contentType
         val isAudio = contentType?.startsWith("audio/") == true
@@ -80,7 +82,7 @@ class TranscriptionController(
             return ResponseEntity.badRequest().build()
         }
 
-        val transcriptionResponse = transcriptionService.transcribe(file, languageCode)
+        val transcriptionResponse = transcriptionService.transcribe(file, languageCode, provider)
         val subtitleContent = subtitleService.generateSrt(transcriptionResponse.segments ?: emptyList())
         
         val response = SubtitleResponseDto(

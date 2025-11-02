@@ -59,7 +59,7 @@ class TranscriptionControllerTest {
             |
         """.trimMargin()
 
-        `when`(transcriptionService.transcribe(mockFile, "en-US"))
+        `when`(transcriptionService.transcribe(mockFile, "en-US", "sphinx"))
             .thenReturn(transcriptionResponse)
         `when`(subtitleService.generateSrt(segments))
             .thenReturn(srtContent)
@@ -124,7 +124,7 @@ class TranscriptionControllerTest {
             |
         """.trimMargin()
 
-        `when`(transcriptionService.transcribe(mockFile, "en-US"))
+        `when`(transcriptionService.transcribe(mockFile, "en-US", "sphinx"))
             .thenReturn(transcriptionResponse)
         `when`(subtitleService.generateSrt(segments))
             .thenReturn(srtContent)
@@ -165,7 +165,7 @@ class TranscriptionControllerTest {
             |
         """.trimMargin()
 
-        `when`(transcriptionService.transcribe(mockFile, "en-US"))
+        `when`(transcriptionService.transcribe(mockFile, "en-US", "sphinx"))
             .thenReturn(transcriptionResponse)
         `when`(subtitleService.generateSrt(segments))
             .thenReturn(srtContent)

@@ -13,7 +13,9 @@ import java.util.*
 @Service
 class TranscriptionService(
     private val sphinxService: SphinxService,
-    @Value("\${media.ffmpeg.path:ffmpeg}") private val ffmpegPath: String
+    private val voskService: VoskService,
+    @Value("\${media.ffmpeg.path:ffmpeg}") private val ffmpegPath: String,
+    @Value("\${transcription.default-provider:sphinx}") private val defaultProvider: String
 ) {
 
     private val supportedVideoTypes = setOf(
@@ -22,12 +24,34 @@ class TranscriptionService(
         MediaType.valueOf("video/webm")
     )
 
+    /**
+     * Transcribes audio using the default provider configured in application.properties.
+     */
     fun transcribe(file: MultipartFile, languageCode: String = "en-US"): TranscriptionResponseDto {
+        return transcribe(file, languageCode, defaultProvider)
+    }
+
+    /**
+     * Transcribes audio using the specified provider.
+     * 
+     * @param provider The ASR provider to use ("sphinx" or "vosk")
+     */
+    fun transcribe(file: MultipartFile, languageCode: String = "en-US", provider: String): TranscriptionResponseDto {
         if (file.isEmpty) throw IllegalArgumentException("File is required")
 
         val wavBytes = toWavBytes(file)
 
-        val recognized = sphinxService.recognize(wavBytes)
+        val recognized = when (provider.lowercase()) {
+            "vosk" -> {
+                if (!voskService.isAvailable()) {
+                    throw IllegalStateException("Vosk provider is not available. Please configure vosk.model-path.")
+                }
+                voskService.recognize(wavBytes)
+            }
+            "sphinx" -> sphinxService.recognize(wavBytes)
+            else -> throw IllegalArgumentException("Unknown transcription provider: $provider. Use 'sphinx' or 'vosk'.")
+        }
+
         val segments = recognized.words.map {
             TranscriptSegmentDto(
                 text = it.word,
