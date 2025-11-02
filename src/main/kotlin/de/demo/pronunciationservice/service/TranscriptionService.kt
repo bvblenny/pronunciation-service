@@ -2,6 +2,7 @@ package de.demo.pronunciationservice.service
 
 import de.demo.pronunciationservice.model.TranscriptSegmentDto
 import de.demo.pronunciationservice.model.TranscriptionResponseDto
+import de.demo.pronunciationservice.strategy.TranscriptionStrategyResolver
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
@@ -10,11 +11,16 @@ import java.io.File
 import java.nio.file.Files
 import java.util.*
 
+/**
+ * Service for transcribing audio/video files using pluggable ASR providers.
+ * 
+ * This service uses the Strategy design pattern where different ASR providers
+ * (Sphinx, Vosk, Google Cloud) are implemented as separate strategies that can
+ * be selected at runtime based on configuration or request parameters.
+ */
 @Service
 class TranscriptionService(
-    private val sphinxService: SphinxService,
-    private val voskService: VoskService,
-    private val googleCloudSpeechService: GoogleCloudSpeechService,
+    private val strategyResolver: TranscriptionStrategyResolver,
     @Value("\${media.ffmpeg.path:ffmpeg}") private val ffmpegPath: String,
     @Value("\${transcription.default-provider:sphinx}") private val defaultProvider: String
 ) {
@@ -37,31 +43,24 @@ class TranscriptionService(
     }
 
     /**
-     * Transcribes audio using the specified provider.
+     * Transcribes audio using the specified provider strategy.
      * 
-     * @param provider The ASR provider to use ("sphinx", "vosk", or "google")
+     * Uses the Strategy pattern to select and execute the appropriate
+     * transcription provider at runtime.
+     * 
+     * @param provider The ASR provider to use ("sphinx", "vosk", "google", etc.)
+     * @param languageCode The language code for transcription
      */
     fun transcribe(file: MultipartFile, languageCode: String = "en-US", provider: String): TranscriptionResponseDto {
         if (file.isEmpty) throw IllegalArgumentException("File is required")
 
         val wavBytes = toWavBytes(file)
 
-        val recognized = when (provider.lowercase()) {
-            "vosk" -> {
-                if (!voskService.isAvailable()) {
-                    throw IllegalStateException("Vosk provider is not available. Please configure vosk.model-path.")
-                }
-                voskService.recognize(wavBytes)
-            }
-            "google", "google-cloud", "gcp" -> {
-                if (!googleCloudSpeechService.isAvailable()) {
-                    throw IllegalStateException("Google Cloud Speech provider is not available. Please configure Google Cloud credentials.")
-                }
-                googleCloudSpeechService.recognize(wavBytes, languageCode)
-            }
-            "sphinx" -> sphinxService.recognize(wavBytes)
-            else -> throw IllegalArgumentException("Unknown transcription provider: $provider. Use 'sphinx', 'vosk', or 'google'.")
-        }
+        // Resolve the appropriate strategy based on provider name
+        val strategy = strategyResolver.resolve(provider)
+        
+        // Execute the strategy to get transcription
+        val recognized = strategy.transcribe(wavBytes, languageCode)
 
         val segments = recognized.words.map {
             TranscriptSegmentDto(

@@ -33,7 +33,7 @@ class VoskService(
         private const val WAV_HEADER_SIZE = 44
         private const val BUFFER_SIZE = 4096
         private const val WAV_HEADER_MIN_SIZE = 12
-        
+
         // WAV file format markers
         private val RIFF_MARKER = "RIFF".toByteArray()
         private val WAVE_MARKER = "WAVE".toByteArray()
@@ -47,7 +47,6 @@ class VoskService(
                 model = Model(modelPath)
                 logger.info("Vosk model initialized successfully from: {}", modelPath)
             } catch (e: Exception) {
-                // Log warning but don't fail - model might be configured later or not needed
                 logger.warn("Failed to initialize Vosk model at path: {} - {}", modelPath, e.message)
             }
         } else {
@@ -78,9 +77,8 @@ class VoskService(
 
         val recognizer = Recognizer(currentModel, sampleRate)
         recognizer.setWords(true) // Enable word-level timestamps
-        
+
         try {
-            // Skip WAV header if present
             val audioData = if (audioBytes.size > WAV_HEADER_SIZE && isWavHeader(audioBytes)) {
                 audioBytes.copyOfRange(WAV_HEADER_SIZE, audioBytes.size)
             } else {
@@ -95,7 +93,6 @@ class VoskService(
                 recognizer.acceptWaveForm(buffer, bytesRead)
             }
 
-            // Get final result
             val resultJson = recognizer.finalResult
             val result = objectMapper.readTree(resultJson)
 
@@ -116,7 +113,7 @@ class VoskService(
      */
     private fun parseWords(result: JsonNode): List<WordEvaluationDto> {
         val resultArray = result.get("result") ?: return emptyList()
-        
+
         return resultArray.mapNotNull { wordNode ->
             val word = wordNode.get("word")?.asText() ?: return@mapNotNull null
             val start = wordNode.get("start")?.asDouble() ?: return@mapNotNull null
@@ -139,12 +136,10 @@ class VoskService(
      */
     private fun isWavHeader(bytes: ByteArray): Boolean {
         if (bytes.size < WAV_HEADER_MIN_SIZE) return false
-        
-        // Check for "RIFF" marker at the start
+
         val hasRiffMarker = bytes.copyOfRange(0, 4).contentEquals(RIFF_MARKER)
-        // Check for "WAVE" marker at offset 8
         val hasWaveMarker = bytes.copyOfRange(8, 12).contentEquals(WAVE_MARKER)
-        
+
         return hasRiffMarker && hasWaveMarker
     }
 }

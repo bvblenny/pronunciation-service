@@ -19,35 +19,49 @@ After researching ASR provider options for subtitle generation, **Vosk** was sel
 
 ## Architecture
 
-The integration follows the existing pluggable provider pattern:
+The integration uses the **Strategy design pattern** for pluggable ASR providers:
 
 ```
-┌─────────────────────────────┐
-│ TranscriptionController     │
-│  - /transcribe              │
-│  - /transcribe-with-subtitles│
-└──────────┬──────────────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│ TranscriptionService        │
-│  - Provider selection       │
-│  - Audio normalization      │
-└──────────┬──────────────────┘
-           │
-     ┌─────┴─────┐
-     ▼           ▼
-┌─────────┐ ┌──────────┐
-│ Sphinx  │ │  Vosk    │
-│ Service │ │  Service │
-└─────────┘ └──────────┘
-     │           │
-     └─────┬─────┘
-           ▼
-    ┌──────────────┐
-    │   Subtitle   │
-    │   Service    │
-    └──────────────┘
+┌─────────────────────────────────┐
+│   TranscriptionController       │
+│   - /transcribe                 │
+│   - /transcribe-with-subtitles  │
+└────────────┬────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────┐
+│   TranscriptionService          │
+│   - Audio normalization         │
+│   - Strategy coordination       │
+└────────────┬────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────┐
+│  TranscriptionStrategyResolver  │
+│  - Strategy discovery           │
+│  - Runtime strategy selection   │
+└────────────┬────────────────────┘
+             │
+      ┌──────┴──────────┬──────────────┐
+      ▼                 ▼              ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐
+│   Sphinx     │  │    Vosk      │  │   Google Cloud       │
+│  Strategy    │  │   Strategy   │  │     Strategy         │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────────────┘
+       │                 │                 │
+       ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐
+│SphinxService │  │ VoskService  │  │GoogleCloudSpeech     │
+│              │  │              │  │     Service          │
+└──────────────┘  └──────────────┘  └──────────────────────┘
+       │                 │                 │
+       └─────────────────┴─────────────────┘
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │   Subtitle   │
+                  │   Service    │
+                  └──────────────┘
 ```
 
 ## Setup Instructions

@@ -147,21 +147,36 @@ spring.cloud.gcp.credentials.location=file:/path/to/service-account-key.json
 
 ## Architecture
 
-- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, VoskService, GoogleCloudSpeechService, SubtitleService).
-- Strategy abstraction for transcription providers keeps evaluation logic agnostic.
+- **Strategy Pattern**: ASR providers (Sphinx, Vosk, Google Cloud) are implemented as interchangeable strategies following the Strategy design pattern.
+- **TranscriptionStrategy Interface**: Defines the contract for all ASR providers with methods: `getProviderNames()`, `isAvailable()`, `transcribe()`.
+- **Strategy Resolver**: `TranscriptionStrategyResolver` manages strategy registration and selection at runtime.
+- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SubtitleService).
 - Provider selection via configuration or API parameter enables flexible ASR engine usage.
-- Three provider options: Sphinx (offline, fast), Vosk (offline, accurate), Google Cloud (cloud, highest accuracy).
+- Three concrete strategies: `SphinxTranscriptionStrategy` (offline, fast), `VoskTranscriptionStrategy` (offline, accurate), `GoogleCloudTranscriptionStrategy` (cloud, highest accuracy).
 - Temporary WAV handling ensures consistent input for engines.
 - DTO layer isolates internal scoring model from API payloads for future versioning.
 - SubtitleService generates SRT-formatted subtitles from transcription segments with timing information.
 
 ## Extending a New STT Provider
 
-1. Implement a provider service (e.g., WhisperService) with a recognize(audioBytes) method returning RecognizedSpeechDto.  
-2. Register it as a Spring bean.  
-3. Add selection logic in TranscriptionService.transcribe() method.  
-4. (Optional) Add health indicator for the new provider.
-5. (Optional) Enhance scoring with engine-specific confidence or phoneme data.
+The Strategy pattern makes adding new providers straightforward:
+
+1. **Create a new service** (e.g., `WhisperService`) with a `recognize(audioBytes)` method returning `RecognizedSpeechDto`.
+2. **Implement the TranscriptionStrategy interface** (e.g., `WhisperTranscriptionStrategy`):
+   ```kotlin
+   @Component
+   class WhisperTranscriptionStrategy(
+       private val whisperService: WhisperService
+   ) : TranscriptionStrategy {
+       override fun getProviderNames() = listOf("whisper", "openai-whisper")
+       override fun isAvailable() = whisperService.isAvailable()
+       override fun transcribe(audioBytes: ByteArray, languageCode: String) = 
+           whisperService.recognize(audioBytes, languageCode)
+   }
+   ```
+3. **Register as Spring bean** - Spring will auto-discover and register the strategy with `@Component`.
+4. **Optional**: Add a health indicator for monitoring.
+5. The `TranscriptionStrategyResolver` automatically discovers and registers your new strategy - no changes needed to existing code!
 
 ## Roadmap Ideas
 

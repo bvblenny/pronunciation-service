@@ -2,11 +2,20 @@
 
 ## Overview
 
-This service supports three ASR (Automatic Speech Recognition) providers for transcription and subtitle generation:
+This service supports three ASR (Automatic Speech Recognition) providers for transcription and subtitle generation, implemented using the **Strategy design pattern**:
 
 1. **CMU Sphinx** - Offline, fast, pre-bundled (default)
 2. **Vosk** - Offline, high accuracy, requires model download
 3. **Google Cloud Speech-to-Text** - Cloud-based, highest accuracy, requires API credentials
+
+### Strategy Pattern Architecture
+
+Each ASR provider is implemented as a concrete strategy implementing the `TranscriptionStrategy` interface:
+- `SphinxTranscriptionStrategy`
+- `VoskTranscriptionStrategy`
+- `GoogleCloudTranscriptionStrategy`
+
+The `TranscriptionStrategyResolver` dynamically selects and executes the appropriate strategy at runtime based on the provider name. This design makes the system highly extensible - new providers can be added by simply implementing the strategy interface and registering as a Spring bean.
 
 ## Quick Comparison
 
