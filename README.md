@@ -38,10 +38,20 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
   Forced alignment vs reference → detailed timings (and phoneme estimates)
 
 - POST /api/transcription/transcribe  
-  Raw Sphinx transcription with segments → { transcript, segments[] }
+  Raw transcription with segments → { transcript, segments[] }  
+  Params: file, languageCode (default: en-US), provider (default: sphinx)  
+  Supports providers: "sphinx" (offline, default) or "vosk" (offline, more accurate)
 
 - POST /api/transcription/transcribe-with-subtitles  
-  Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }
+  Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }  
+  Params: file, languageCode (default: en-US), provider (default: sphinx)  
+  Example with Vosk:
+  ```bash
+  curl -X POST http://localhost:8080/api/transcription/transcribe-with-subtitles \
+    -F "file=@audio.mp3" \
+    -F "languageCode=en-US" \
+    -F "provider=vosk"
+  ```
 
 - POST /api/prosody/evaluate
   **Prosody scoring**: Multipart: audio, referenceText (optional), languageCode  
@@ -89,6 +99,24 @@ Alternatively, use environment variables:
 export VOSK_MODEL_PATH=/path/to/vosk-model-small-en-us-0.15
 export TRANSCRIPTION_PROVIDER=vosk
 ```
+
+**Recommended Vosk models:**
+- Small English (40 MB): `vosk-model-small-en-us-0.15` - Fast, good accuracy
+- Full English (1.8 GB): `vosk-model-en-us-0.22` - Best accuracy
+- Multilingual: Various models available for 20+ languages
+
+**Provider Comparison:**
+
+| Feature | Sphinx | Vosk |
+|---------|--------|------|
+| Accuracy | Moderate | High |
+| Speed | Fast | Fast |
+| Model Size | ~100 MB | 40 MB - 2 GB |
+| Setup | Pre-bundled | Model download required |
+| Cost | Free | Free |
+| Languages | English (bundled) | 20+ languages |
+| Word Timestamps | ✓ | ✓ |
+| Confidence Scores | ✓ | ✓ |
 
 ## Architecture
 

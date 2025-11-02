@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.demo.pronunciationservice.model.RecognizedSpeechDto
 import de.demo.pronunciationservice.model.WordEvaluationDto
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.vosk.Model
@@ -26,6 +27,7 @@ class VoskService(
 ) {
     private var model: Model? = null
     private val objectMapper = ObjectMapper()
+    private val logger = LoggerFactory.getLogger(VoskService::class.java)
 
     @PostConstruct
     fun initialize() {
@@ -33,10 +35,13 @@ class VoskService(
         if (modelPath.isNotBlank()) {
             try {
                 model = Model(modelPath)
+                logger.info("Vosk model initialized successfully from: {}", modelPath)
             } catch (e: Exception) {
                 // Log warning but don't fail - model might be configured later or not needed
-                println("Warning: Failed to initialize Vosk model at path: $modelPath - ${e.message}")
+                logger.warn("Failed to initialize Vosk model at path: {} - {}", modelPath, e.message)
             }
+        } else {
+            logger.info("Vosk model path not configured. Vosk transcription will not be available.")
         }
     }
 

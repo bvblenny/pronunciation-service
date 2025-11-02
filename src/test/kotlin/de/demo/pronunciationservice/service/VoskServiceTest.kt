@@ -12,6 +12,19 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
  */
 class VoskServiceTest {
 
+    companion object {
+        // WAV header constants for 16-bit mono 16kHz PCM
+        private const val RIFF_MARKER = 0x52.toByte() // 'R'
+        private const val WAV_FILE_SIZE_MINUS_8 = 0x24.toByte()
+        private const val WAVE_MARKER = 0x57.toByte() // 'W'
+        private const val FMT_CHUNK_SIZE = 0x10.toByte()
+        private const val PCM_FORMAT = 0x01.toByte()
+        private const val MONO_CHANNELS = 0x01.toByte()
+        private const val SAMPLE_RATE_16KHZ = 0x80.toByte()
+        private const val BITS_PER_SAMPLE_16 = 0x10.toByte()
+        private const val DATA_MARKER = 0x64.toByte() // 'd'
+    }
+
     @Test
     fun `isAvailable should return false when model not configured`() {
         val service = VoskService(modelPath = "", sampleRate = 16000f)
@@ -37,26 +50,9 @@ class VoskServiceTest {
         
         assertTrue(service.isAvailable())
         
-        // Create a simple WAV header for 16-bit mono 16kHz PCM
-        // This is a minimal test - in real scenarios, you'd use actual audio data
-        val wavHeader = byteArrayOf(
-            // RIFF header
-            0x52, 0x49, 0x46, 0x46, // "RIFF"
-            0x24, 0x00, 0x00, 0x00, // File size - 8
-            0x57, 0x41, 0x56, 0x45, // "WAVE"
-            // fmt chunk
-            0x66, 0x6d, 0x74, 0x20, // "fmt "
-            0x10, 0x00, 0x00, 0x00, // Chunk size (16)
-            0x01, 0x00,             // Audio format (1 = PCM)
-            0x01, 0x00,             // Number of channels (1 = mono)
-            0x80.toByte(), 0x3e, 0x00, 0x00, // Sample rate (16000)
-            0x00, 0x7d, 0x00, 0x00, // Byte rate
-            0x02, 0x00,             // Block align
-            0x10, 0x00,             // Bits per sample (16)
-            // data chunk
-            0x64, 0x61, 0x74, 0x61, // "data"
-            0x00, 0x00, 0x00, 0x00  // Data size (0 for this test)
-        )
+        // Create a minimal WAV header for 16-bit mono 16kHz PCM
+        // Note: This is a minimal test - in real scenarios, you'd use actual audio data
+        val wavHeader = createMinimalWavHeader()
         
         // Note: This will likely produce empty or minimal results due to no actual audio
         // A real test would require sample audio files
@@ -79,5 +75,30 @@ class VoskServiceTest {
         }
         
         assertTrue(exception.message?.contains("not initialized") == true)
+    }
+
+    /**
+     * Creates a minimal WAV header for testing purposes.
+     * Format: 16-bit mono PCM at 16kHz sample rate.
+     */
+    private fun createMinimalWavHeader(): ByteArray {
+        return byteArrayOf(
+            // RIFF header
+            0x52, 0x49, 0x46, 0x46, // "RIFF"
+            0x24, 0x00, 0x00, 0x00, // File size - 8
+            0x57, 0x41, 0x56, 0x45, // "WAVE"
+            // fmt chunk
+            0x66, 0x6d, 0x74, 0x20, // "fmt "
+            0x10, 0x00, 0x00, 0x00, // Chunk size (16)
+            0x01, 0x00,             // Audio format (1 = PCM)
+            0x01, 0x00,             // Number of channels (1 = mono)
+            0x80.toByte(), 0x3e, 0x00, 0x00, // Sample rate (16000)
+            0x00, 0x7d, 0x00, 0x00, // Byte rate (16000 * 1 * 16/8)
+            0x02, 0x00,             // Block align (1 * 16/8)
+            0x10, 0x00,             // Bits per sample (16)
+            // data chunk
+            0x64, 0x61, 0x74, 0x61, // "data"
+            0x00, 0x00, 0x00, 0x00  // Data size (0 for this test)
+        )
     }
 }
