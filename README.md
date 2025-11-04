@@ -1,16 +1,13 @@
 # Pronunciation Service
 
-Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback. Designed to showcase clean architecture, extensibility, and production readiness.
+Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback.
 
-## Highlights
-
-- Multiple transcription engines: cloud accuracy (Google) + offline fallback (Sphinx) behind a common provider interface.
-- Forced alignment & scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
+## Features
+- Forced alignment for scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
 - **Prosody (suprasegmental) scoring**: Explainable, extensible scoring for rhythm, intonation, stress, pacing, and fluency with diagnostic metrics and learner feedback.
-- Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg for consistent STT quality.
-- Clean layering: Controller → Media/Transcription → Alignment & Scoring → DTOs (OpenAPI documented).
-- Extensible: drop in new STT (e.g., Whisper, Vosk, Azure) with minimal touch points.
-- Production touches: health endpoint, OpenAPI/Swagger UI, environment/property configuration, CORS & upload limits.
+- Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg.
+- Clean architecture for maintainability, extensibilty and testability
+- Extensible: drop in new STT / ASR providers
 
 ## Quick Start
 
@@ -24,7 +21,7 @@ curl http://localhost:8080/api/pronunciation/health
 Docs: http://localhost:8080/swagger-ui.html  
 OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
-## Key Endpoints
+## Endpoints
 
 - POST /api/pronunciation/evaluate-stt  
   Multipart: audio, referenceText, languageCode (default en-US)  
@@ -60,7 +57,7 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 ## Scoring
 
 1. Normalize audio (ffmpeg) → mono 16 kHz WAV.  
-2. Transcribe (selected engine).  
+2. Transcribe via STT.  
 3. Normalize text (case/punctuation cleanup).  
 4. Align reference vs hypothesis (word sequence).  
 5. Compute word match ratio + insertion/deletion adjustments + confidence aggregation.  
@@ -87,15 +84,12 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 1. Implement a provider (e.g., WhisperTranscriptionProvider) with a transcribe(audioBytes) method returning a uniform internal transcript model.  
 2. Register it as a Spring bean.  
 3. Add selection logic (query param or config) or a new endpoint.  
-4. (Optional) Enhance scoring with engine-specific confidence or phoneme data.
 
 ## Roadmap Ideas
 
-- Whisper or Vosk provider
-- Persistence & analytics dashboard (e.g., Postgres + aggregated learning KPIs)
-- JWT auth + rate limiting
-- Phoneme/prosody scoring & CEFR heuristic tagging
-- Docker image & Helm chart for one‑command deployment
+- Whisper provider
+- Persistence & analytics dashboard
+- JWT auth
 
 ## Tech Stack
 
