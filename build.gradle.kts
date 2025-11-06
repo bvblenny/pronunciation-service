@@ -38,6 +38,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("net.sf.phat:sphinx4-core:5prealpha")
     implementation("net.sf.phat:sphinx4-data:5prealpha")
+    implementation("com.alphacephei:vosk:0.3.45")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")

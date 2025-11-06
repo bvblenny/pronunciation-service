@@ -6,7 +6,7 @@ Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it
 - Forced alignment for scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
 - **Prosody (suprasegmental) scoring**: Explainable, extensible scoring for rhythm, intonation, stress, pacing, and fluency with diagnostic metrics and learner feedback.
 - Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg.
-- Clean architecture for maintainability, extensibilty and testability
+- Clean architecture for maintainability, extensibility, and testability
 - Extensible: drop in new STT / ASR providers
 
 ## Quick Start
@@ -44,7 +44,7 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
   → { overallScore, subScores{rhythm, intonation, stress, pacing, fluency}, diagnostics, feedback[], features, metadata }  
   Provides explainable scoring with numeric sub-scores, detailed metrics explaining the scores, and actionable learner hints.
 
-- POST /api/prosody/features 
+- POST /api/prosody/features
   Extract raw prosody features (pitch, energy, timing) without scoring  
   → { duration, pitchContour[], energyContour[], wordTimings[], pauseRegions[] }
 
@@ -56,11 +56,11 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 ## Scoring
 
-1. Normalize audio (ffmpeg) → mono 16 kHz WAV.  
-2. Transcribe via STT.  
-3. Normalize text (case/punctuation cleanup).  
-4. Align reference vs hypothesis (word sequence).  
-5. Compute word match ratio + insertion/deletion adjustments + confidence aggregation.  
+1. Normalize audio (ffmpeg) → mono 16 kHz WAV.
+2. Transcribe via STT.
+3. Normalize text (case/punctuation cleanup).
+4. Align reference vs hypothesis (word sequence).
+5. Compute word match ratio + insertion/deletion adjustments + confidence aggregation.
 6. Return aggregate score + per-word details.
 
 ## Configuration (application.properties)
@@ -81,9 +81,9 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 ## Extending a New STT Provider
 
-1. Implement a provider (e.g., WhisperTranscriptionProvider) with a transcribe(audioBytes) method returning a uniform internal transcript model.  
-2. Register it as a Spring bean.  
-3. Add selection logic (query param or config) or a new endpoint.  
+1. Implement a provider (e.g., WhisperTranscriptionProvider) with a transcribe(audioBytes) method returning a uniform internal transcript model.
+2. Register it as a Spring bean.
+3. Add selection logic (query param or config) or a new endpoint.
 
 ## Roadmap Ideas
 

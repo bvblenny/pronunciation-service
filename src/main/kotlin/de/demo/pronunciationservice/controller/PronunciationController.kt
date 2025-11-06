@@ -6,12 +6,12 @@ import de.demo.pronunciationservice.service.PronunciationService
 import de.demo.pronunciationservice.service.SphinxService
 import de.demo.pronunciationservice.service.TranscriptionService
 import de.demo.pronunciationservice.service.DetailedAnalysisService
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.nio.file.Files
-import java.util.logging.Logger
 
 
 @RestController
@@ -23,7 +23,7 @@ class PronunciationController(
     private val detailedAnalysisService: DetailedAnalysisService
 ) {
 
-    private val logger = Logger.getLogger(PronunciationController::class.java.name)
+    private val logger = LoggerFactory.getLogger(PronunciationController::class.java)
 
     /**
      * Endpoint to score pronunciation by comparing audio to a reference text
@@ -80,12 +80,10 @@ class PronunciationController(
         }
     }
 
-    @Suppress("UnusedParameter")
     @PostMapping("/evaluate-sphinx-recognition")
     fun evaluateSphinxRecognition(
         @RequestParam("audio") audioFile: MultipartFile,
-        @RequestParam("referenceText") referenceText: String,
-        @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
+        @RequestParam("referenceText") referenceText: String
     ): ResponseEntity<out Any?> {
         if (audioFile.isEmpty) {
             return ResponseEntity.badRequest().build()
@@ -114,10 +112,5 @@ class PronunciationController(
         val wavBytes = transcriptionService.toWavBytes(audioFile)
         val analysis = detailedAnalysisService.analyzeDetailed(wavBytes, referenceText)
         return ResponseEntity.ok(analysis)
-    }
-
-    @GetMapping("/health")
-    fun healthCheck(): Map<String, String> {
-        return mapOf("status" to "UP", "service" to "pronunciation-service")
     }
 }

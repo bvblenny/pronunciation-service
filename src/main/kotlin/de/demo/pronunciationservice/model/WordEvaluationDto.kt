@@ -7,7 +7,7 @@ data class WordEvaluationDto(
     val word: String,
     val startTime: Double,
     val endTime: Double,
-    val evaluation: Float,
+    val evaluation: Double,
     val phonemes: List<PhonemeEvaluationDto>? = null
 )
 

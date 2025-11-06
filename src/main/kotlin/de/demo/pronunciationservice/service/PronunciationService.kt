@@ -7,17 +7,34 @@ import com.google.cloud.speech.v1.SpeechRecognitionAlternative
 import com.google.protobuf.ByteString
 import de.demo.pronunciationservice.model.PronunciationScoreDto
 import de.demo.pronunciationservice.model.WordDetail
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.util.logging.Logger
+import javax.annotation.PostConstruct
+import javax.annotation.PreDestroy
 import kotlin.math.max
 import kotlin.math.min
 
 @Service
 class PronunciationService {
 
-    private val logger = Logger.getLogger(PronunciationService::class.java.name)
-    
-    private val speechClient: SpeechClient by lazy { SpeechClient.create() }
+    private val logger = LoggerFactory.getLogger(PronunciationService::class.java)
+
+    private var speechClient: SpeechClient? = null
+
+    @PostConstruct
+    fun initialize() {
+        try {
+            speechClient = SpeechClient.create()
+            logger.info("Google Cloud Speech client initialized successfully in PronunciationService")
+        } catch (e: Exception) {
+            logger.warn("Failed to initialize Google Cloud Speech client in PronunciationService: {}", e.message)
+        }
+    }
+
+    @PreDestroy
+    fun cleanup() {
+        speechClient?.close()
+    }
 
     /**
      * Analyzes audio and compares it to a reference text to provide a pronunciation score.
@@ -28,6 +45,9 @@ class PronunciationService {
      * @return A score between 0.0 and 1.0 representing how well the audio matches the reference text
      */
     fun evaluate(audioBytes: ByteArray, referenceText: String, languageCode: String): PronunciationScoreDto {
+        val client = speechClient
+            ?: throw IllegalStateException("Google Cloud Speech client not initialized. Please configure Google Cloud credentials.")
+
         val audio = RecognitionAudio.newBuilder()
             .setContent(ByteString.copyFrom(audioBytes))
             .build()
@@ -40,16 +60,16 @@ class PronunciationService {
             .setEnableAutomaticPunctuation(false)
             .build()
 
-        val response = speechClient.recognize(config, audio)
+        val response = client.recognize(config, audio)
 
         if (response.resultsCount == 0) {
-            logger.warning("No speech recognition results returned")
+            logger.warn("No speech recognition results returned")
             return PronunciationScoreDto(0.0, "No speech detected", emptyList())
         }
 
         val result = response.getResults(0)
         if (result.alternativesCount == 0) {
-            logger.warning("No alternatives in speech recognition results")
+            logger.warn("No alternatives in speech recognition results")
             return PronunciationScoreDto(0.0, "No transcription alternatives", emptyList())
         }
 
@@ -84,7 +104,7 @@ class PronunciationService {
     private fun levenshteinDistance(s1: String, s2: String): Int {
         val m = s1.length
         val n = s2.length
-        
+
         if (m == 0) return n
         if (n == 0) return m
 
@@ -136,7 +156,7 @@ class PronunciationService {
             wordDetails.add(
                 WordDetail(
                     word = word,
-                    confidence = confidence,
+                    confidence = confidence.toDouble(),
                     isCorrect = isCorrect,
                     expectedWord = referenceWord
                 )

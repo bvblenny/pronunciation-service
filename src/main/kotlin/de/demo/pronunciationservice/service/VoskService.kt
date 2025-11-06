@@ -1,0 +1,145 @@
+package de.demo.pronunciationservice.service
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import de.demo.pronunciationservice.model.RecognizedSpeechDto
+import de.demo.pronunciationservice.model.WordEvaluationDto
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Service
+import org.vosk.Model
+import org.vosk.Recognizer
+import java.io.ByteArrayInputStream
+import javax.annotation.PostConstruct
+import javax.annotation.PreDestroy
+
+/**
+ * Service for speech recognition using Vosk ASR.
+ * Vosk provides accurate, offline speech recognition with word-level timestamps.
+ *
+ * @property modelPath Path to the Vosk model directory.
+ * @property sampleRate Sample rate for audio processing (default 16000 Hz).
+ */
+@Service
+class VoskService(
+    @Value("\${vosk.model-path:}") private val modelPath: String,
+    @Value("\${vosk.sample-rate:16000}") private val sampleRate: Float
+) {
+    private var model: Model? = null
+    private val objectMapper = ObjectMapper()
+    private val logger = LoggerFactory.getLogger(VoskService::class.java)
+
+    companion object {
+        private const val WAV_HEADER_SIZE = 44
+        private const val BUFFER_SIZE = 4096
+        private const val WAV_HEADER_MIN_SIZE = 12
+
+        // WAV file format markers
+        private val RIFF_MARKER = "RIFF".toByteArray()
+        private val WAVE_MARKER = "WAVE".toByteArray()
+    }
+
+    @PostConstruct
+    fun initialize() {
+        // Only initialize if model path is configured
+        if (modelPath.isNotBlank()) {
+            try {
+                model = Model(modelPath)
+                logger.info("Vosk model initialized successfully from: {}", modelPath)
+            } catch (e: Exception) {
+                logger.warn("Failed to initialize Vosk model at path: {} - {}", modelPath, e.message)
+            }
+        } else {
+            logger.info("Vosk model path not configured. Vosk transcription will not be available.")
+        }
+    }
+
+    @PreDestroy
+    fun cleanup() {
+        model?.close()
+    }
+
+    /**
+     * Checks if Vosk is properly initialized and ready to use.
+     */
+    fun isAvailable(): Boolean = model != null
+
+    /**
+     * Recognizes speech from the given audio byte array.
+     * Audio must be 16-bit mono PCM WAV format at the configured sample rate.
+     *
+     * @param audioBytes The audio data as a byte array.
+     * @return A [RecognizedSpeechDto] containing the recognized transcript and word details.
+     * @throws IllegalStateException if Vosk model is not initialized.
+     */
+    fun recognize(audioBytes: ByteArray): RecognizedSpeechDto {
+        val currentModel = model ?: throw IllegalStateException("Vosk model not initialized. Please configure vosk.model-path.")
+
+        val recognizer = Recognizer(currentModel, sampleRate)
+        recognizer.setWords(true) // Enable word-level timestamps
+
+        try {
+            val audioData = if (audioBytes.size > WAV_HEADER_SIZE && isWavHeader(audioBytes)) {
+                audioBytes.copyOfRange(WAV_HEADER_SIZE, audioBytes.size)
+            } else {
+                audioBytes
+            }
+
+            val inputStream = ByteArrayInputStream(audioData)
+            val buffer = ByteArray(BUFFER_SIZE)
+            var bytesRead: Int
+
+            while (inputStream.read(buffer).also { bytesRead = it } >= 0) {
+                recognizer.acceptWaveForm(buffer, bytesRead)
+            }
+
+            val resultJson = recognizer.finalResult
+            val result = objectMapper.readTree(resultJson)
+
+            val transcript = result.get("text")?.asText() ?: ""
+            val words = parseWords(result)
+
+            return RecognizedSpeechDto(
+                transcript = transcript,
+                words = words
+            )
+        } finally {
+            recognizer.close()
+        }
+    }
+
+    /**
+     * Parse word-level results from Vosk JSON response.
+     */
+    private fun parseWords(result: JsonNode): List<WordEvaluationDto> {
+        val resultArray = result.get("result") ?: return emptyList()
+
+        return resultArray.mapNotNull { wordNode ->
+            val word = wordNode.get("word")?.asText() ?: return@mapNotNull null
+            val start = wordNode.get("start")?.asDouble() ?: return@mapNotNull null
+            val end = wordNode.get("end")?.asDouble() ?: return@mapNotNull null
+            val conf = wordNode.get("conf")?.asDouble() ?: 1.0
+
+            WordEvaluationDto(
+                word = word,
+                startTime = start,
+                endTime = end,
+                evaluation = conf,
+                phonemes = null // Vosk doesn't provide phoneme-level data by default
+            )
+        }
+    }
+
+    /**
+     * Check if byte array starts with WAV file header.
+     * Verifies "RIFF" at offset 0 and "WAVE" at offset 8.
+     */
+    private fun isWavHeader(bytes: ByteArray): Boolean {
+        if (bytes.size < WAV_HEADER_MIN_SIZE) return false
+
+        val hasRiffMarker = bytes.copyOfRange(0, 4).contentEquals(RIFF_MARKER)
+        val hasWaveMarker = bytes.copyOfRange(8, 12).contentEquals(WAVE_MARKER)
+
+        return hasRiffMarker && hasWaveMarker
+    }
+}
