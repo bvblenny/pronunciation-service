@@ -1,17 +1,13 @@
 # Pronunciation Service
 
-Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text, Vosk, and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback. Designed to showcase clean architecture, extensibility, and production readiness.
+Kotlin / Spring Boot service that normalizes user audio (ffmpeg), transcribes it via pluggable engines (Google Cloud Speech‑to‑Text and offline CMU Sphinx), performs forced alignment against a reference passage, and returns an overall pronunciation score plus word‑level timing & feedback.
 
-## Highlights
-
-- Multiple transcription engines: cloud accuracy (Google), modern offline ASR (Vosk), and offline fallback (Sphinx) behind a common provider interface.
-- **Subtitle generation**: Automatic SRT subtitle generation from transcriptions with word-level timing for any provider.
-- Forced alignment & scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
+## Features
+- Forced alignment for scoring: reference vs hypothesis comparison, word correctness, confidence proxy, timings.
 - **Prosody (suprasegmental) scoring**: Explainable, extensible scoring for rhythm, intonation, stress, pacing, and fluency with diagnostic metrics and learner feedback.
-- Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg for consistent STT quality.
-- Clean layering: Controller → Media/Transcription → Alignment & Scoring → DTOs (OpenAPI documented).
-- Extensible: drop in new STT (e.g., Whisper, Azure) with minimal touch points.
-- Production touches: health endpoint, OpenAPI/Swagger UI, environment/property configuration, CORS & upload limits.
+- Media normalization: converts mixed input formats to mono 16 kHz WAV via ffmpeg.
+- Clean architecture for maintainability, extensibility, and testability
+- Extensible: drop in new STT / ASR providers
 
 ## Quick Start
 
@@ -25,7 +21,7 @@ curl http://localhost:8080/api/pronunciation/health
 Docs: http://localhost:8080/swagger-ui.html  
 OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
-## Key Endpoints
+## Endpoints
 
 - POST /api/pronunciation/evaluate-stt  
   Multipart: audio, referenceText, languageCode (default en-US)  
@@ -38,34 +34,17 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
   Forced alignment vs reference → detailed timings (and phoneme estimates)
 
 - POST /api/transcription/transcribe  
-  Raw transcription with segments → { transcript, segments[] }  
-  Params: file, languageCode (default: en-US), provider (default: sphinx)  
-  Supports providers: "sphinx" (offline, default), "vosk" (offline, more accurate), or "google" (cloud, highest accuracy)
+  Raw Sphinx transcription with segments → { transcript, segments[] }
 
 - POST /api/transcription/transcribe-with-subtitles  
-  Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }  
-  Params: file, languageCode (default: en-US), provider (default: sphinx)  
-  Examples:
-  ```bash
-  # Offline with Vosk (more accurate)
-  curl -X POST http://localhost:8080/api/transcription/transcribe-with-subtitles \
-    -F "file=@audio.mp3" \
-    -F "languageCode=en-US" \
-    -F "provider=vosk"
-  
-  # Cloud with Google (highest accuracy)
-  curl -X POST http://localhost:8080/api/transcription/transcribe-with-subtitles \
-    -F "file=@audio.mp3" \
-    -F "languageCode=en-US" \
-    -F "provider=google"
-  ```
+  Transcription with SRT subtitle generation → { transcript, segments[], subtitleContent }
 
 - POST /api/prosody/evaluate
   **Prosody scoring**: Multipart: audio, referenceText (optional), languageCode  
   → { overallScore, subScores{rhythm, intonation, stress, pacing, fluency}, diagnostics, feedback[], features, metadata }  
   Provides explainable scoring with numeric sub-scores, detailed metrics explaining the scores, and actionable learner hints.
 
-- POST /api/prosody/features 
+- POST /api/prosody/features
   Extract raw prosody features (pitch, energy, timing) without scoring  
   → { duration, pitchContour[], energyContour[], wordTimings[], pauseRegions[] }
 
@@ -77,121 +56,44 @@ OpenAPI: /v3/api-docs (JSON) | /v3/api-docs.yaml
 
 ## Scoring
 
-1. Normalize audio (ffmpeg) → mono 16 kHz WAV.  
-2. Transcribe (selected engine).  
-3. Normalize text (case/punctuation cleanup).  
-4. Align reference vs hypothesis (word sequence).  
-5. Compute word match ratio + insertion/deletion adjustments + confidence aggregation.  
+1. Normalize audio (ffmpeg) → mono 16 kHz WAV.
+2. Transcribe via STT.
+3. Normalize text (case/punctuation cleanup).
+4. Align reference vs hypothesis (word sequence).
+5. Compute word match ratio + insertion/deletion adjustments + confidence aggregation.
 6. Return aggregate score + per-word details.
 
 ## Configuration (application.properties)
 
 - media.ffmpeg.path
 - sphinx.acoustic-model / sphinx.dictionary / sphinx.language-model
-- **vosk.model-path** - Path to Vosk model directory (download from https://alphacephei.com/vosk/models)
-- **google.speech.language-code** - Default language for Google Cloud Speech (default: en-US)
-- **google.speech.enable-word-time-offsets** - Enable word timing (default: true)
-- **transcription.default-provider** - Default ASR provider: "sphinx", "vosk", or "google" (default: sphinx)
 - GOOGLE_APPLICATION_CREDENTIALS or spring.cloud.gcp.credentials.location
 - spring.servlet.multipart.max-file-size / max-request-size
 - app.cors.* (CORS domains, methods, headers)
 
-### Setting up Vosk
-
-1. Download a Vosk model from https://alphacephei.com/vosk/models (e.g., vosk-model-small-en-us-0.15)
-2. Extract the model to a directory
-3. Set the path in application.properties: `vosk.model-path=/path/to/vosk-model-small-en-us-0.15`
-4. Optionally set as default provider: `transcription.default-provider=vosk`
-
-Alternatively, use environment variables:
-```bash
-export VOSK_MODEL_PATH=/path/to/vosk-model-small-en-us-0.15
-export TRANSCRIPTION_PROVIDER=vosk
-```
-
-**Recommended Vosk models:**
-- Small English (40 MB): `vosk-model-small-en-us-0.15` - Fast, good accuracy
-- Full English (1.8 GB): `vosk-model-en-us-0.22` - Best accuracy
-- Multilingual: Various models available for 20+ languages
-
-### Setting up Google Cloud Speech-to-Text
-
-1. Create a Google Cloud project and enable the Speech-to-Text API
-2. Create a service account and download the JSON key file
-3. Set the credentials path:
-
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
-```
-
-Or configure in application.properties:
-```properties
-spring.cloud.gcp.credentials.location=file:/path/to/service-account-key.json
-```
-
-4. Optionally set as default provider: `transcription.default-provider=google`
-
-**Provider Comparison:**
-
-| Feature | Sphinx | Vosk | Google Cloud |
-|---------|--------|------|--------------|
-| Accuracy | Moderate | High | Highest |
-| Speed | Fast | Fast | Fast (network dependent) |
-| Model Size | ~100 MB | 40 MB - 2 GB | Cloud-based (no local storage) |
-| Setup | Pre-bundled | Model download | API credentials required |
-| Cost | Free | Free | Pay per usage (~$0.006/15s) |
-| Languages | English (bundled) | 20+ languages | 125+ languages |
-| Word Timestamps | ✓ | ✓ | ✓ |
-| Confidence Scores | ✓ | ✓ | ✓ |
-| Internet Required | ✗ | ✗ | ✓ |
-
 ## Architecture
 
-- **Strategy Pattern**: ASR providers (Sphinx, Vosk, Google Cloud) are implemented as interchangeable strategies following the Strategy design pattern.
-- **TranscriptionStrategy Interface**: Defines the contract for all ASR providers with methods: `getProviderNames()`, `isAvailable()`, `transcribe()`.
-- **Strategy Resolver**: `TranscriptionStrategyResolver` manages strategy registration and selection at runtime.
-- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SubtitleService).
-- Provider selection via configuration or API parameter enables flexible ASR engine usage.
-- Three concrete strategies: `SphinxTranscriptionStrategy` (offline, fast), `VoskTranscriptionStrategy` (offline, accurate), `GoogleCloudTranscriptionStrategy` (cloud, highest accuracy).
+- Thin controllers: delegate to services (TranscriptionService, PronunciationService, SphinxService, SubtitleService).
+- Strategy abstraction for transcription providers keeps evaluation logic agnostic.
 - Temporary WAV handling ensures consistent input for engines.
 - DTO layer isolates internal scoring model from API payloads for future versioning.
 - SubtitleService generates SRT-formatted subtitles from transcription segments with timing information.
 
 ## Extending a New STT Provider
 
-The Strategy pattern makes adding new providers straightforward:
-
-1. **Create a new service** (e.g., `WhisperService`) with a `recognize(audioBytes)` method returning `RecognizedSpeechDto`.
-2. **Implement the TranscriptionStrategy interface** (e.g., `WhisperTranscriptionStrategy`):
-   ```kotlin
-   @Component
-   class WhisperTranscriptionStrategy(
-       private val whisperService: WhisperService
-   ) : TranscriptionStrategy {
-       override fun getProviderNames() = listOf("whisper", "openai-whisper")
-       override fun isAvailable() = whisperService.isAvailable()
-       override fun transcribe(audioBytes: ByteArray, languageCode: String) = 
-           whisperService.recognize(audioBytes, languageCode)
-   }
-   ```
-3. **Register as Spring bean** - Spring will auto-discover and register the strategy with `@Component`.
-4. **Optional**: Add a health indicator for monitoring.
-5. The `TranscriptionStrategyResolver` automatically discovers and registers your new strategy - no changes needed to existing code!
+1. Implement a provider (e.g., WhisperTranscriptionProvider) with a transcribe(audioBytes) method returning a uniform internal transcript model.
+2. Register it as a Spring bean.
+3. Add selection logic (query param or config) or a new endpoint.
 
 ## Roadmap Ideas
 
-- ✅ Vosk provider (completed)
-- ✅ Google Cloud Speech provider (completed)
 - Whisper provider
-- Azure Speech Services provider
-- Persistence & analytics dashboard (e.g., Postgres + aggregated learning KPIs)
-- JWT auth + rate limiting
-- Phoneme/prosody scoring & CEFR heuristic tagging
-- Docker image & Helm chart for one‑command deployment
+- Persistence & analytics dashboard
+- JWT auth
 
 ## Tech Stack
 
-Kotlin, Spring Boot, Google Speech-to-Text, Vosk, CMU Sphinx, ffmpeg, OpenAPI/Swagger, Gradle.
+Kotlin, Spring Boot, Google Speech-to-Text, CMU Sphinx, ffmpeg, OpenAPI/Swagger, Gradle.
 
 ## License
 
