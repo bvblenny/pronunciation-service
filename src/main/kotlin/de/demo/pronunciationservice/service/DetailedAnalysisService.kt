@@ -187,11 +187,11 @@ class DetailedAnalysisService(
     private fun align(reference: List<String>, hypothesis: List<String>): List<Step> {
         val refSize = reference.size
         val hypSize = hypothesis.size
-        
+
         if (refSize == 0 && hypSize == 0) return emptyList()
         if (refSize == 0) return hypothesis.indices.map { Step(ErrorType.INSERTION, null, it) }
         if (hypSize == 0) return reference.indices.map { Step(ErrorType.DELETION, it, null) }
-        
+
         val dp = Array(refSize + 1) { IntArray(hypSize + 1) }
         val trace = Array(refSize + 1) { IntArray(hypSize + 1) }
 
@@ -210,7 +210,7 @@ class DetailedAnalysisService(
                 val diag = dp[i - 1][j - 1] + matchCost
                 val del = dp[i - 1][j] + 1
                 val ins = dp[i][j - 1] + 1
-                
+
                 when {
                     diag <= del && diag <= ins -> {
                         dp[i][j] = diag
@@ -297,7 +297,7 @@ class DetailedAnalysisService(
         startTimeSec = hypWord.startTime,
         endTimeSec = hypWord.endTime,
         durationSec = (hypWord.endTime - hypWord.startTime).coerceAtLeast(0.0),
-        evaluation = hypWord.evaluation.toDouble(),
+        evaluation = hypWord.evaluation,
         phonemes = hypWord.phonemes
     )
 

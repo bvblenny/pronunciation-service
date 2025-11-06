@@ -65,7 +65,7 @@ class GoogleCloudSpeechService(
      * @throws IllegalStateException if Google Cloud Speech client is not initialized.
      */
     fun recognize(audioBytes: ByteArray, languageCode: String = defaultLanguageCode): RecognizedSpeechDto {
-        val client = speechClient 
+        val client = speechClient
             ?: throw IllegalStateException("Google Cloud Speech client not initialized. Please configure Google Cloud credentials.")
 
         val audio = RecognitionAudio.newBuilder()
@@ -127,12 +127,12 @@ class GoogleCloudSpeechService(
             } else {
                 0.0
             }
-            
+
             WordEvaluationDto(
                 word = wordInfo.word,
                 startTime = startTime,
                 endTime = endTime,
-                evaluation = wordInfo.confidence,
+                evaluation = wordInfo.confidence.toDouble(),
                 phonemes = null // Google Cloud API doesn't provide phoneme-level data in basic response
             )
         }

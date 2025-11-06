@@ -9,11 +9,11 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import java.util.logging.Logger
 
 @RestController
 @RequestMapping("/api/prosody")
@@ -24,7 +24,7 @@ class ProsodyController(
     private val scoringService: ProsodyScoringService
 ) {
 
-    private val logger = Logger.getLogger(ProsodyController::class.java.name)
+    private val logger = LoggerFactory.getLogger(ProsodyController::class.java)
 
     /**
      * Evaluate prosody (suprasegmental features) of speech audio.
@@ -55,10 +55,10 @@ class ProsodyController(
         @RequestParam("referenceText", required = false, defaultValue = "") referenceText: String,
         @RequestParam("languageCode", defaultValue = "en-US") languageCode: String
     ): ResponseEntity<ProsodyScoreDto> {
-        logger.info("Received prosody evaluation request for language: $languageCode")
+        logger.info("Received prosody evaluation request for language: {}", languageCode)
 
         if (audioFile.isEmpty) {
-            logger.warning("Empty audio file received")
+            logger.warn("Empty audio file received")
             return ResponseEntity.badRequest().build()
         }
 
@@ -67,19 +67,18 @@ class ProsodyController(
             val wavBytes = transcriptionService.toWavBytes(audioFile)
 
             // Extract acoustic features
-            logger.fine("Extracting prosody features...")
+            logger.debug("Extracting prosody features...")
             val features = featureExtractionService.extractFeatures(wavBytes)
 
             // Score features and generate feedback
-            logger.fine("Scoring prosody features...")
+            logger.debug("Scoring prosody features...")
             val prosodyScore = scoringService.score(features, referenceText, languageCode)
 
-            logger.info("Prosody evaluation completed. Overall score: ${prosodyScore.overallScore}")
+            logger.info("Prosody evaluation completed. Overall score: {}", prosodyScore.overallScore)
             ResponseEntity.ok(prosodyScore)
 
         } catch (e: Exception) {
-            logger.severe("Error during prosody evaluation: ${e.message}")
-            e.printStackTrace()
+            logger.error("Error during prosody evaluation: {}", e.message, e)
             ResponseEntity.internalServerError().build()
         }
     }
@@ -111,20 +110,10 @@ class ProsodyController(
 
             ResponseEntity.ok(features)
         } catch (e: Exception) {
-            logger.severe("Error extracting features: ${e.message}")
+            logger.error("Error extracting features: {}", e.message, e)
             ResponseEntity.internalServerError().build()
         }
     }
-
-    @GetMapping("/health")
-    @Operation(summary = "Health check", description = "Check if prosody service is operational")
-    fun healthCheck(): Map<String, String> {
-        return mapOf(
-            "status" to "UP",
-            "service" to "prosody-evaluation",
-            "scorerVersion" to "1.0.0-heuristic",
-            "capabilities" to "rhythm,intonation,stress,pacing,fluency"
-        )
-    }
 }
+
 

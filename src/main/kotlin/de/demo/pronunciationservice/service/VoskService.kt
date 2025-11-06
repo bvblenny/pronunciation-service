@@ -118,7 +118,7 @@ class VoskService(
             val word = wordNode.get("word")?.asText() ?: return@mapNotNull null
             val start = wordNode.get("start")?.asDouble() ?: return@mapNotNull null
             val end = wordNode.get("end")?.asDouble() ?: return@mapNotNull null
-            val conf = wordNode.get("conf")?.asDouble()?.toFloat() ?: 1.0f
+            val conf = wordNode.get("conf")?.asDouble() ?: 1.0
 
             WordEvaluationDto(
                 word = word,

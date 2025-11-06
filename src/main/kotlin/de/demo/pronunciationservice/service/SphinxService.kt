@@ -57,7 +57,7 @@ class SphinxService(
 
     /**
      * Recognizes speech from the given audio byte array.
-     * 
+     *
      * Note: StreamSpeechRecognizer is created per request as it's not thread-safe.
      * For high-throughput scenarios, consider implementing a recognizer pool.
      *
@@ -71,7 +71,7 @@ class SphinxService(
             val result = recognizer.result
             val transcript = result?.hypothesis ?: ""
             val words = result?.words?.map { it.toWordEvaluationDto() } ?: emptyList()
-            
+
             return RecognizedSpeechDto(
                 transcript = transcript,
                 words = words
@@ -114,7 +114,7 @@ class SphinxService(
             word = this.word.spelling,
             startTime = this.timeFrame.start / 1000.0,
             endTime = this.timeFrame.end / 1000.0,
-            evaluation = this.word.mostLikelyPronunciation.probability,
+            evaluation = this.word.mostLikelyPronunciation.probability.toDouble(),
             phonemes = phonemeResults
         )
     }
